@@ -110,7 +110,7 @@ def left_to_right_sweep(tensor, func_vals, As_updated, As, I, J, L, d, eps_or_ch
                 for A in As[1:]:
                     func_interp = np.einsum('ia, ajb -> ijb', func_interp, A)
                     func_interp = func_interp.reshape(-1, A.shape[-1])
-            else: #should work just with this because the for cycle goes up to bond=L-2
+            else: 
                 func_updated.append(func_sample)
                 func_interp = np.einsum('ia, ajb -> ijb', func_sample, As[bond])
                 func_interp = func_interp.reshape(-1, As[bond].shape[-1])
@@ -203,74 +203,5 @@ def right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_
         err_2.append(np.linalg.norm(difference)/np.linalg.norm(func_vals))
 
     return As, J, As_updated
-
-# %%
-A = [0,1,2,3,4]
-
-for Ar in A[::-1]:
-    print(Ar)
-
-B = []
-
-for i in range(4):
-    B.append(i)
-
-print(B)
-
-# %%
-# Example: create a function to interpolate
-test_func = lambda x: 0.4 * np.sin(10 * np.pi * x)\
-                    + 0.1 * np.cos(99 * np.pi * x)\
-                    + 0.3 * np.cos(50 * np.pi * x)\
-                    + 0.2 * np.sin(250 * np.pi * x)\
-                    + 4 * x * (1 - x)\
-                    + 5e7 * x**3 * (1-x)**3 * (0.5-x)**3 * (0.25-x)**3 * (0.75-x)**3
-
-# exact function values
-xs = np.linspace(0, 1, 2**10, endpoint=False)
-func_vals = test_func(xs)
-
-plt.plot(xs, func_vals)
-plt.show()
-
-
-# %%
-# MPS from tensor cross interpolation
-#func = lambda *args: func_vals.reshape((2,)*10)[*args]
-#here we have to define func as the initialization of the class
-func = function(lambda *x: func_vals.reshape((2,) * 10)[*x])
-As, _, eval, err_2, err_max = tensor_cross_interpolation(func,         # function to be interpolated
-                                   func_vals,      
-                                   L=10,          # number of MPS tensors
-                                   eps_or_chi=20, # bond dimension
-                                   iters=4)       # number of back-and-forth sweeps
-
-print(np.linalg.norm(func_vals), np.max(np.abs(func_vals)))
-
-
-# %%
-fig, axs = plt.subplots(ncols=2, figsize=(8,4), dpi=300)
-
-axs[0].plot(eval, np.array(err_2), '.-', label = r"$\epsilon_2$")
-axs[1].plot(eval, err_max, '.--', label = r"$\epsilon_\infty$")
-axs[0].set(xlabel="evals",
-           ylabel="error",
-           #xscale="log",
-           yscale="log",
-           #ylim=(1e-5, 1e0)
-           )
-axs[1].set(xlabel="evals",
-           ylabel="error",
-           #xscale="log",
-           yscale="log",
-           #ylim=(1e-2,1e2)
-           )
-axs[0].legend()
-axs[1].legend()
-plt.tight_layout()
-plt.show()
-
-# %%
-
 
 
