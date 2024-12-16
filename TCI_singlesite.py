@@ -205,3 +205,84 @@ def right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_
     return As, J, As_updated
 
 
+# implement the tensor cross interpolation
+def tensor_cross_errorvschi(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters=6):
+    # random initial choice for index sets
+    idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
+    As = [np.array([[[tensor(*idxs[:j], i, *idxs[j+1:])] for i in range(d)]])
+          for j in range(L)]
+    As[1:] /= tensor(*idxs)
+    #this sort of corresponds to inserting the P^-1 0-dimensional slices
+    #i.e. if I don't put this, evaluating F(σ1,...,σL)= As*...*As = F(σ1,..,σL)^L, when it should be just L
+    I = [idxs[:j].reshape(1, -1) for j in range(L)] # creates list of I_l arrays
+    J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)] # list of J_l
+    # sweep
+    for i in range(iters):
+        #print(f'Sweep: {i+1:d}.')
+        As, I = left_to_right_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi)
+        As, J = right_to_left_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi)
+    
+    func_interp = np.squeeze(As[0]) #removes any singleton dimensions (dimensions of size 1).
+
+    for A in As[1:]:
+        func_interp = np.einsum('ia, ajb -> ijb', func_interp, A) #einstein summation
+        func_interp = func_interp.reshape(-1, A.shape[-1])
+
+    func_interp = np.squeeze(func_interp)
+
+    difference = func_vals-func_interp
+    err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
+    err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
+    evals = tensor.cache_size()
+
+    return err_max, err_2, evals
+
+def left_to_right_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
+    # sweep left to right
+    for bond in range(L-1):
+        # construct local two-site tensor
+        chil, _ = I[bond].shape #chil = number of rows in array I_l: number of combinations (σ1,..,σl)
+        chir, _ = J[bond+1].shape #which corresponds to number of "points" on which I am evaluating function
+        
+        Pi = np.zeros((chil, d, d, chir))
+        for il in range(chil):
+            for s1 in range(d):
+                for s2 in range(d):
+                    for jr in range(chir):
+                        val = tensor(*I[bond][il,:],s1,s2,*J[bond+1][jr,:])
+                        Pi[il,s1,s2,jr] = val
+        Pi = Pi.reshape(chil * d, d * chir)
+        # decompose using interpolative decomposition:
+        # Pi = P^T @ A^T, A^T = Pi[idx,:]
+        A, P, k, idx = interpolative_decomposition(Pi.T, eps_or_k=eps_or_chi)
+        # update indices using idxs c I[bond] x {0, 1, ..., d-1}
+        I[bond+1] = np.array([np.append(I[bond][i//d], [i%d]) for i in idx])
+        # update tensors
+        As[bond] = P.T.reshape(chil, d, k)
+        As[bond+1] = A.T.reshape(k, d, chir)
+    return As, I
+
+def right_to_left_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
+    # sweep right to left
+    for bond in range(L-2,-1,-1):
+        # construct local two-site tensor
+        chil, _ = I[bond].shape
+        chir, _ = J[bond+1].shape
+
+        Pi = np.zeros((chil, d, d, chir))
+        for il in range(chil):
+            for s1 in range(d):
+                for s2 in range(d):
+                    for jr in range(chir):
+                        val = tensor(*I[bond][il,:],s1,s2,*J[bond+1][jr,:])
+                        Pi[il,s1,s2,jr] = val
+        Pi = Pi.reshape(chil * d, d * chir)
+        # decompose using interpolative decomposition:
+        # Pi = A @ P, A = Pi[:,idx]
+        A, P, k, idx = interpolative_decomposition(Pi, eps_or_k=eps_or_chi)
+        # update indices using idxs c {0, 1, ..., d-1} x J[bond+1]
+        J[bond] = np.array([np.append([i//chir], J[bond+1][i%chir]) for i in idx])
+        # update tensors
+        As[bond] = A.reshape(chil, d, k)
+        As[bond+1] = P.reshape(k, d, chir)
+    return As, J
