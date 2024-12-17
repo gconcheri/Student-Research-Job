@@ -85,7 +85,7 @@ def left_to_right_sweep(tensor, func_vals, As_updated, As, I, J, L, d, eps_or_ch
         chil, _ = I[bond].shape #chil = number of rows in array I_l: number of combinations (σ1,..,σl)
         chir, _ = J[bond+1].shape #which corresponds to number of "points" on which I am evaluating function
 
-        Pi = np.zeros((chil, d, d, chir))
+        Pi = np.zeros((chil, d, d, chir), dtype=np.complex128)
         for il in range(chil):
             for s1 in range(d):
                 for s2 in range(d):
@@ -159,7 +159,7 @@ def right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_
         # construct local two-site tensor
         chil, _ = I[bond].shape
         chir, _ = J[bond+1].shape
-        Pi = np.zeros((chil, d, d, chir))
+        Pi = np.zeros((chil, d, d, chir), dtype=np.complex128)
         for il in range(chil):
             for s1 in range(d):
                 for s2 in range(d):
@@ -244,7 +244,7 @@ def left_to_right_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
         chil, _ = I[bond].shape #chil = number of rows in array I_l: number of combinations (σ1,..,σl)
         chir, _ = J[bond+1].shape #which corresponds to number of "points" on which I am evaluating function
         
-        Pi = np.zeros((chil, d, d, chir))
+        Pi = np.zeros((chil, d, d, chir), dtype=np.complex128)
         for il in range(chil):
             for s1 in range(d):
                 for s2 in range(d):
@@ -269,7 +269,7 @@ def right_to_left_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
         chil, _ = I[bond].shape
         chir, _ = J[bond+1].shape
 
-        Pi = np.zeros((chil, d, d, chir))
+        Pi = np.zeros((chil, d, d, chir), dtype=np.complex128)
         for il in range(chil):
             for s1 in range(d):
                 for s2 in range(d):
