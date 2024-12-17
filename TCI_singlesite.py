@@ -204,6 +204,15 @@ def right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_
 
     return As, J, As_updated
 
+def interpolate(As):
+    func_interp = np.squeeze(As[0])
+    for A in As[1:]:
+        func_interp = np.einsum('ia, ajb -> ijb', func_interp, A)
+        func_interp = func_interp.reshape(-1, A.shape[-1])
+    func_interp = np.squeeze(func_interp)
+    return func_interp
+
+
 
 # implement the tensor cross interpolation
 def tensor_cross_errorvschi(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters=6):
