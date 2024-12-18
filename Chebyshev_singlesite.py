@@ -24,6 +24,7 @@ def Chebyshev_interpolation(func, L, chi):
     args = 0.5 * (np.arange(2)[:, None] + c_a_N(np.arange(N+1), N)[None, :]) # see Eqs. (4.1) and (4.2)
     As = []
     # construct (data-dependent) left tensor
+    print(args.shape)
     A = func(args)[None] # (1, 2, chi)
     As.append(A)
     # construct (data-independent) bulk tensors from Chebyshev polynomials
