@@ -265,8 +265,10 @@ def left_to_right_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
         # Pi = P^T @ A^T, A^T = Pi[idx,:]
         A, P, k, idx = interpolative_decomposition(Pi.T, eps_or_k=eps_or_chi)
         # update indices using idxs c I[bond] x {0, 1, ..., d-1}
+        print("I_bond before update ",I[bond+1])
         I[bond+1] = np.array([np.append(I[bond][i//d], [i%d]) for i in idx])
         # update tensors
+        print("I_bond after update ",I[bond+1])
         As[bond] = P.T.reshape(chil, d, k)
         As[bond+1] = A.T.reshape(k, d, chir)
     return As, I
