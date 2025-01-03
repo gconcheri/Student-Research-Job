@@ -29,14 +29,8 @@ def Chebyshev_interpolation(func,
     # construct (data-dependent) left tensor
     
     # print(args.shape)
-
-    evals = 1
-    for ev in args.shape:
-        evals*=ev
     
-    print("Before func(args)")
     A = func(args)[None] # (1, 2, chi)
-    print("After func(args)")
     
     As.append(A)
     # construct (data-independent) bulk tensors from Chebyshev polynomials
@@ -53,6 +47,10 @@ def Chebyshev_interpolation(func,
     err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
     err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
 
+    evals = 1
+    for ev in args.shape:
+        evals*=ev
+
     return As, evals, err_max, err_2, func_interp
 
 def interpolate_singlesite(As):
@@ -64,14 +62,13 @@ def interpolate_singlesite(As):
     return func_interp
 
 
-def Chebyshev_interpolation_Xsite(func, L, X, chi):
+def Chebyshev_interpolation_Dsite(func, func_vals, L, D, chi):
     N = chi-1
     args = 0.5 * (np.arange(2)[:, None] + c_a_N(np.arange(N+1), N)[None, :]) # see Eqs. (4.1) and (4.2)
+    D_list = np.arange(D)
     As = []
     # construct (data-dependent) left tensor
-    print(args.shape)
-    args = np.array((args,)*X)
-    A = func(args)[None] # (1, 2, chi, X)
+    A = func(D_list, args)[None] # (1, D, 2, chi)
     print(A.shape)
     As.append(A)
     # construct (data-independent) bulk tensors from Chebyshev polynomials
@@ -81,13 +78,36 @@ def Chebyshev_interpolation_Xsite(func, L, X, chi):
     # construct (data-independent) final tensor from Chebyshev polynomials
     A = np.array([P_a_N(np.arange(2)/2, alpha, N) for alpha in range(N+1)])[:, :, None] # (chi, 2, 1)
     As.append(A)
-    return As
 
-def interpolate_Xsite(As): #to be modified
-    func_interp = np.squeeze(As[0])
-    for A in As[1:]:
-        func_interp = np.einsum('ia, ajb -> ijb', func_interp, A)
-        func_interp = func_interp.reshape(-1, A.shape[-1])
-    func_interp = np.squeeze(func_interp)
+    func_interp = interpolate_Dsite(As, D)
+
+    difference = func_vals-func_interp #should be difference between 2 matrices
+    err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
+    err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
+
+    evals = 1
+    for ev in args.shape:
+        evals*=ev
+    evals = evals*D
+
+    return As, evals, err_max, err_2, func_interp
+
+def interpolate_Dsite(As, D):
+
+    func_interp = np.squeeze(As[-1]) #now has two legs: ab
+    for A in As[-2:0:-1]:
+        func_interp = np.einsum('idk, kj -> idj', A, func_interp)
+        func_interp = func_interp.reshape(A.shape[0], -1)
+
+    if np.squeeze(As[0]).shape[0] == D:
+        #print(As[0].shape)
+        func_interp = np.einsum('dak, kj -> daj', np.squeeze(As[0]), func_interp)
+        #func_interp = np.einsum('ak, kj -> aj', np.squeeze(As[0]), func_interp) #uncomment this in case D = 1
+        func_interp = np.transpose(func_interp, [1,2,0])
+        #print("func interp shape = ", func_interp.shape)
+        
+        func_interp = func_interp.reshape(-1, D) # dimension (T,X)
+    else:
+        return print("Error")
     return func_interp
 
