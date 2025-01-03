@@ -67,17 +67,18 @@ def tensor_cross_interpolation(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters
     eval = []
     err_max = []
     err_2 = []
+    func_interp2 = []
     I = [idxs[:j].reshape(1, -1) for j in range(L)] # creates list of I_l arrays
     J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)] # list of J_l
     # sweep
     As_updated = 0
     for i in range(iters):
         #print(f'Sweep: {i+1:d}.')
-        As, I, func_updated = left_to_right_sweep(tensor, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
-        As, J, As_updated = right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
-    return As, J, eval, err_2, err_max
+        As, I, func_updated = left_to_right_sweep(tensor, func_interp2, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
+        As, J, As_updated = right_to_left_sweep(tensor, func_interp2, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
+    return As, J, eval, err_2, err_max, func_interp2
 
-def left_to_right_sweep(tensor, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
+def left_to_right_sweep(tensor, func_interp2, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
     # sweep left to right
     func_updated = []
     for bond in range(L-1):
@@ -146,13 +147,16 @@ def left_to_right_sweep(tensor, func_vals, As_updated, As, I, J, L, d, eps_or_ch
 
         func_interp = func_interp.reshape(-1)
 
+        if len(eval) == 20:
+            func_interp2.append(func_interp)
+
         difference = func_vals-func_interp
         err_max.append(np.max(np.abs(difference))/np.max(np.abs(func_vals)))
         err_2.append(np.linalg.norm(difference)/np.linalg.norm(func_vals))
 
     return As, I, func_updated
 
-def right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
+def right_to_left_sweep(tensor, func_interp2, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
     # sweep right to left
     As_updated = []
     for bond in range(L-2,-1,-1):
@@ -198,9 +202,13 @@ def right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_
         #we obtain list As_updated = [As[2]*As[3]*..As[L-1],...,A[L-1]] also here we have L-2 elements!
         func_interp = func_interp.reshape(-1) 
 
+
         difference = func_vals-func_interp
         err_max.append(np.max(np.abs(difference))/np.max(np.abs(func_vals)))
         err_2.append(np.linalg.norm(difference)/np.linalg.norm(func_vals))
+
+        if len(eval) == 20:
+            func_interp2.append(func_interp)
 
     return As, J, As_updated
 
@@ -231,13 +239,7 @@ def tensor_cross_errorvschi(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters=6)
         As, I = left_to_right_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi)
         As, J = right_to_left_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi)
     
-    func_interp = np.squeeze(As[0]) #removes any singleton dimensions (dimensions of size 1).
-
-    for A in As[1:]:
-        func_interp = np.einsum('ia, ajb -> ijb', func_interp, A) #einstein summation
-        func_interp = func_interp.reshape(-1, A.shape[-1])
-
-    func_interp = np.squeeze(func_interp)
+    func_interp = interpolate(As)
 
     difference = func_vals-func_interp
     err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
@@ -265,10 +267,8 @@ def left_to_right_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
         # Pi = P^T @ A^T, A^T = Pi[idx,:]
         A, P, k, idx = interpolative_decomposition(Pi.T, eps_or_k=eps_or_chi)
         # update indices using idxs c I[bond] x {0, 1, ..., d-1}
-        print("I_bond before update ",I[bond+1])
         I[bond+1] = np.array([np.append(I[bond][i//d], [i%d]) for i in idx])
         # update tensors
-        print("I_bond after update ",I[bond+1])
         As[bond] = P.T.reshape(chil, d, k)
         As[bond+1] = A.T.reshape(k, d, chir)
     return As, I

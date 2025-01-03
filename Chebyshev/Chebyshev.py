@@ -19,13 +19,60 @@ P_a_N = lambda x, alpha, N: C_Chebysh_j_N(2*x-1, alpha, N) #this takes values fr
 
 
 # define function that constructs MPS tensors of Chebyshev interpolation
-def Chebyshev_interpolation(func, L, chi):
+def Chebyshev_interpolation(func, 
+                            func_vals, #func as array evaluated on all discrete point in our grid, to compare it with func_interp
+                            L, 
+                            chi):
+    N = chi-1
+    args = 0.5 * (np.arange(2)[:, None] + c_a_N(np.arange(N+1), N)[None, :]) # see Eqs. (4.1) and (4.2)
+    As = []
+    # construct (data-dependent) left tensor
+    
+    # print(args.shape)
+
+    evals = 1
+    for ev in args.shape:
+        evals*=ev
+    
+    print("Before func(args)")
+    A = func(args)[None] # (1, 2, chi)
+    print("After func(args)")
+    
+    As.append(A)
+    # construct (data-independent) bulk tensors from Chebyshev polynomials
+    for i in range(1, L-1):
+        A = np.array([P_a_N(args, alpha, N) for alpha in range(N+1)]) # (chi, 2, chi)
+        As.append(A)
+    # construct (data-independent) final tensor from Chebyshev polynomials
+    A = np.array([P_a_N(np.arange(2)/2, alpha, N) for alpha in range(N+1)])[:, :, None] # (chi, 2, 1)
+    As.append(A)
+
+    func_interp = interpolate_singlesite(As)
+
+    difference = func_vals-func_interp
+    err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
+    err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
+
+    return As, evals, err_max, err_2, func_interp
+
+def interpolate_singlesite(As):
+    func_interp = np.squeeze(As[0])
+    for A in As[1:]:
+        func_interp = np.einsum('ia, ajb -> ijb', func_interp, A)
+        func_interp = func_interp.reshape(-1, A.shape[-1])
+    func_interp = np.squeeze(func_interp)
+    return func_interp
+
+
+def Chebyshev_interpolation_Xsite(func, L, X, chi):
     N = chi-1
     args = 0.5 * (np.arange(2)[:, None] + c_a_N(np.arange(N+1), N)[None, :]) # see Eqs. (4.1) and (4.2)
     As = []
     # construct (data-dependent) left tensor
     print(args.shape)
-    A = func(args)[None] # (1, 2, chi)
+    args = np.array((args,)*X)
+    A = func(args)[None] # (1, 2, chi, X)
+    print(A.shape)
     As.append(A)
     # construct (data-independent) bulk tensors from Chebyshev polynomials
     for i in range(1, L-1):
@@ -36,10 +83,11 @@ def Chebyshev_interpolation(func, L, chi):
     As.append(A)
     return As
 
-def interpolate(As):
+def interpolate_Xsite(As): #to be modified
     func_interp = np.squeeze(As[0])
     for A in As[1:]:
         func_interp = np.einsum('ia, ajb -> ijb', func_interp, A)
         func_interp = func_interp.reshape(-1, A.shape[-1])
     func_interp = np.squeeze(func_interp)
     return func_interp
+
