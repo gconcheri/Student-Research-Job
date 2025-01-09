@@ -122,7 +122,7 @@ def Chebyshev_interpolation_Dsite(func, func_vals, L, D, chi):
     evals = 1
     for ev in args.shape:
         evals*=ev
-    evals = evals*D
+    evals = evals *D
 
     return As, evals, err_max, err_2, func_interp
 

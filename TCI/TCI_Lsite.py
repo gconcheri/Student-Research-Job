@@ -136,7 +136,7 @@ def right_to_left_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
                 for s2 in range(d):
                     for jr in range(chir):
                         val = tensor(*I[bond][il,:],s1,s2,*J[bond+1][jr,:])
-                        print(val.shape)
+                        #print(val.shape)
                         Pi[:,il,s1,s2,jr] = val
         Pi = Pi.reshape(D * chil * d, d * chir)
         # decompose using interpolative decomposition:
