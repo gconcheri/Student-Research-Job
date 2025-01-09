@@ -147,12 +147,14 @@ def left_to_right_sweep(tensor, func_interp2, func_vals, As_updated, As, I, J, L
 
         func_interp = func_interp.reshape(-1)
 
-        if len(eval) == 20:
-            func_interp2.append(func_interp)
-
         difference = func_vals-func_interp
         err_max.append(np.max(np.abs(difference))/np.max(np.abs(func_vals)))
         err_2.append(np.linalg.norm(difference)/np.linalg.norm(func_vals))
+
+        if err_2[-1] < 10**(-2) and not func_interp2:
+            func_interp2.append(func_interp)
+            func_interp2.append(len(eval))
+
 
     return As, I, func_updated
 
@@ -207,8 +209,9 @@ def right_to_left_sweep(tensor, func_interp2, func_vals, func_updated, As, I, J,
         err_max.append(np.max(np.abs(difference))/np.max(np.abs(func_vals)))
         err_2.append(np.linalg.norm(difference)/np.linalg.norm(func_vals))
 
-        if len(eval) == 20:
+        if err_2[-1] < 10**(-2) and not func_interp2:
             func_interp2.append(func_interp)
+            func_interp2.append(len(eval))
 
     return As, J, As_updated
 
@@ -246,7 +249,7 @@ def tensor_cross_errorvschi(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters=6)
     err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
     evals = tensor.cache_size()
 
-    return err_max, err_2, evals, func_interp
+    return err_max, err_2, evals
 
 def left_to_right_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
     # sweep left to right

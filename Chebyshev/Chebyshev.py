@@ -53,6 +53,40 @@ def Chebyshev_interpolation(func,
 
     return As, evals, err_max, err_2, func_interp
 
+def Chebyshev_interpolation_version2(func, 
+                            func_vals, #func as array evaluated on all discrete point in our grid, to compare it with func_interp
+                            L, 
+                            chi):
+    N = chi-1
+    args = 0.5 * (np.arange(2)[:, None] + c_a_N(np.arange(N+1), N)[None, :]) # see Eqs. (4.1) and (4.2)
+    As = []
+    # construct (data-dependent) left tensor
+    args_2 = 2* args[0:1]
+    print(args_2.shape)
+    
+    A = func(2*args[0:1]) # (1, chi)
+    A1 = np.array([P_a_N(args, alpha, N) for alpha in range(N+1)]) # (chi, 2, chi)
+    A = np.einsum('ia, ajb -> ijb', A, A1)
+
+    As.append(A)
+    # construct (data-independent) bulk tensors from Chebyshev polynomials
+    for i in range(1, L-1):
+        A = np.array([P_a_N(args, alpha, N) for alpha in range(N+1)]) # (chi, 2, chi)
+        As.append(A)
+    # construct (data-independent) final tensor from Chebyshev polynomials
+    A = np.array([P_a_N(np.arange(2)/2, alpha, N) for alpha in range(N+1)])[:, :, None] # (chi, 2, 1)
+    As.append(A)
+
+    func_interp = interpolate_singlesite(As)
+
+    difference = func_vals-func_interp
+    err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
+    err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
+
+    evals = chi
+
+    return As, evals, err_max, err_2, func_interp
+
 def interpolate_singlesite(As):
     func_interp = np.squeeze(As[0])
     for A in As[1:]:
