@@ -103,7 +103,7 @@ def Chebyshev_interpolation_Dsite(func, func_vals, L, D, chi):
     As = []
     # construct (data-dependent) left tensor
     A = func(D_list, args)[None] # (1, D, 2, chi)
-    print(A.shape)
+    #print(A.shape)
     As.append(A)
     # construct (data-independent) bulk tensors from Chebyshev polynomials
     for i in range(1, L-1):

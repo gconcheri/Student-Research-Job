@@ -35,9 +35,9 @@ def gen_spin_operators(L):
     return Sx_list, Sz_list
 
 def gen_hamiltonian_terms(L, Sx_list, Sz_list):
-    """Generates the XX and Z terms of the Hamiltonian."""
+    """Generates the XX, ZZ, X and Z terms of the Hamiltonian."""
     D = Sx_list[0].shape[0]
-    print(f'System with {L:d} sites, Hilbert space dimension is {D:d}.')
+    #print(f'System with {L:d} sites, Hilbert space dimension is {D:d}.')
 
     # Ising interaction
     Hxx = Sx_list[0] @ Sx_list[1]
@@ -128,6 +128,8 @@ def correlator(H, L = 11., n = 10, dt = 1e-2):
 def correlator_Chebyshev(D_list, t_matrix, H, dt= 1e-2, n=10):
     N = 2**n
     D = len(D_list)
+    Sx_list, Sz_list = gen_spin_operators(D)
+
 
     # get ground state
     E, psi = eigsh(H, k=1, which='SA')
@@ -142,7 +144,7 @@ def correlator_Chebyshev(D_list, t_matrix, H, dt= 1e-2, n=10):
 
     a,b = t_matrix.shape
 
-    print(a, b)
+    #print(a, b)
 
     t = t_matrix.reshape(-1)*N*dt
     psis = np.zeros((a*b,psi.shape[0]), dtype=np.complex128)
