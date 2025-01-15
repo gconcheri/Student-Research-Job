@@ -35,13 +35,18 @@ class function:  # certain function f(x) with x given as binary
     def __init__(self, f):
         self.cache = {}
         self.f = f #store function passed during instantiation
+        self.numcacheused = 0
+        self.numvals = 0
+        self.unique = 0
 
 
     def __call__(self, *args, **kwds):
-        
+        self.numvals+=1
         if args in self.cache:
+            self.numcacheused+=1
             return self.cache[*args]
         else:
+            self.unique+=1
             val = self.f(*args)
             self.cache[*args] = val
             return val
@@ -91,7 +96,11 @@ def tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, it
     err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
     evals = tensor.cache_size() * D
 
-    return As, J, evals, err_2, err_max, func_interp
+    numcacheused = tensor.numcacheused
+    numvals = tensor.numvals
+    unique = tensor.unique
+
+    return As, J, evals, err_2, err_max, func_interp, numcacheused, numvals, unique
 
 def left_to_right_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
     # sweep left to right
