@@ -96,11 +96,18 @@ def tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, it
     err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
     evals = tensor.cache_size() * D
 
-    numcacheused = tensor.numcacheused
-    numvals = tensor.numvals
-    unique = tensor.unique
+    print('err_max: ', err_max)
+    print('err_2: ', err_2)
+    print("eval/D: ", tensor.cache_size())
+    print()
+    print('repeated evaluations: ', tensor.numcacheused)
+    print('unique evaluations', tensor.unique)
+    print('unique + repeated: ', tensor.numcacheused + tensor.unique)
+    print('total evaluations: ', tensor.numvals)
+    print()
 
-    return As, J, evals, err_2, err_max, func_interp, numcacheused, numvals, unique
+
+    return As, J, evals, err_2, err_max, func_interp
 
 def left_to_right_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
     # sweep left to right

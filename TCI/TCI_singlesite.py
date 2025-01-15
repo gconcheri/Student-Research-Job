@@ -36,23 +36,29 @@ class function:  # certain function f(x) with x given as binary
     def __init__(self, f):
         self.cache = {}
         self.f = f #store function passed during instantiation
+        self.numcacheused = 0
+        self.numvals = 0
+        self.unique = 0
 
 
     def __call__(self, *args, **kwds):
-        
+        self.numvals+=1
         if args in self.cache:
+            self.numcacheused+=1
             return self.cache[*args]
         else:
+            self.unique+=1
             val = self.f(*args)
             self.cache[*args] = val
             return val
     
     def cache_size(self): #size of cache = number of current evaluations
         return len(self.cache) #return the number of entries in the cache
+
         
 
 # %% [markdown]
-# ### SECOND VERSION
+# ### VERSION 1
 
 # %%
 # implement the tensor cross interpolation
@@ -67,18 +73,28 @@ def tensor_cross_interpolation(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters
     eval = []
     err_max = []
     err_2 = []
-    func_interp2 = []
+
     I = [idxs[:j].reshape(1, -1) for j in range(L)] # creates list of I_l arrays
     J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)] # list of J_l
     # sweep
     As_updated = 0
     for i in range(iters):
         #print(f'Sweep: {i+1:d}.')
-        As, I, func_updated = left_to_right_sweep(tensor, func_interp2, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
-        As, J, As_updated = right_to_left_sweep(tensor, func_interp2, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
-    return As, J, eval, err_2, err_max, func_interp2
+        As, I, func_updated = left_to_right_sweep(tensor, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
+        As, J, As_updated = right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max)
 
-def left_to_right_sweep(tensor, func_interp2, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
+    print('final err_max: ', err_max[-1])
+    print('final err_2: ', err_2[-1])
+    print()
+    print('repeated evaluations: ', tensor.numcacheused)
+    print('unique evaluations', tensor.unique)
+    print('unique + repeated: ', tensor.numcacheused + tensor.unique)
+    print('total evaluations: ', tensor.numvals)
+
+
+    return As, J, eval, err_2, err_max
+
+def left_to_right_sweep(tensor, func_vals, As_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
     # sweep left to right
     func_updated = []
     for bond in range(L-1):
@@ -147,16 +163,14 @@ def left_to_right_sweep(tensor, func_interp2, func_vals, As_updated, As, I, J, L
 
         func_interp = func_interp.reshape(-1)
 
-        if len(eval) == 20:
-            func_interp2.append(func_interp)
-
+        
         difference = func_vals-func_interp
         err_max.append(np.max(np.abs(difference))/np.max(np.abs(func_vals)))
         err_2.append(np.linalg.norm(difference)/np.linalg.norm(func_vals))
 
     return As, I, func_updated
 
-def right_to_left_sweep(tensor, func_interp2, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
+def right_to_left_sweep(tensor, func_vals, func_updated, As, I, J, L, d, eps_or_chi, eval, err_2, err_max):
     # sweep right to left
     As_updated = []
     for bond in range(L-2,-1,-1):
@@ -207,8 +221,7 @@ def right_to_left_sweep(tensor, func_interp2, func_vals, func_updated, As, I, J,
         err_max.append(np.max(np.abs(difference))/np.max(np.abs(func_vals)))
         err_2.append(np.linalg.norm(difference)/np.linalg.norm(func_vals))
 
-        if len(eval) == 20:
-            func_interp2.append(func_interp)
+
 
     return As, J, As_updated
 
@@ -297,3 +310,5 @@ def right_to_left_sweep_errorvschi(tensor, As, I, J, L, d, eps_or_chi):
         As[bond] = A.reshape(chil, d, k)
         As[bond+1] = P.reshape(k, d, chir)
     return As, J
+
+# %%

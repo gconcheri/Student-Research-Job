@@ -51,8 +51,8 @@ class function:  # certain function f(x) with x given as binary
         return len(self.cache) #return the number of entries in the cache
         
 
-# %% [markdown]
-# ### SECOND VERSION
+# ### VERSION 2: difference with version 1 is that here we also store func_interp2, which is the interpolated function obtained when reaching error just below 10^-2
+# and here we don't calculate the numcacheused, numvals, unique 
 
 # %%
 # implement the tensor cross interpolation
@@ -154,6 +154,10 @@ def left_to_right_sweep(tensor, func_interp2, func_vals, As_updated, As, I, J, L
         if err_2[-1] < 10**(-2) and not func_interp2:
             func_interp2.append(func_interp)
             func_interp2.append(len(eval))
+
+        #if len(eval) == 20:
+        #    func_interp2.append(func_interp)
+
 
 
     return As, I, func_updated
