@@ -154,3 +154,27 @@ def correlator_Chebyshev(D_list, t_matrix, H, dt= 1e-2, n=10):
     corr = corr.reshape(D, a, b)
 
     return corr
+
+
+    
+import scipy.fft as fft
+
+def FT(Ct, t_list, x_list, nw=4):
+    """
+    full complex data as input. 
+    data only for positive time.
+    """
+    #Ct will now be matrix X x T
+    
+    n = len(t_list)
+    Wfunlist = [np.cos(np.pi*t_list[t]/(2*t_list[-1]))**nw  for t in range(n)]
+    a,b = Ct.shape 
+    input_list = np.zeros((a,b), dtype = np.complex128)
+    FTresult = np.zeros((a,b), dtype = np.complex128)
+
+    for i in range(a):
+        input_list[i,:] = Wfunlist[:] * (np.array(Ct[i,:]))
+    
+    FTresult = fft.fft2(input_list)
+    
+    return FTresult
