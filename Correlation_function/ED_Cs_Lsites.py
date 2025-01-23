@@ -34,7 +34,7 @@ def gen_spin_operators(L):
     
     return Sx_list, Sz_list
 
-def gen_hamiltonian_terms(L, Sx_list, Sz_list):
+def gen_hamiltonian_terms(L, Sx_list, Sz_list, PBC):
     """Generates the XX, ZZ, X and Z terms of the Hamiltonian."""
     D = Sx_list[0].shape[0]
     #print(f'System with {L:d} sites, Hilbert space dimension is {D:d}.')
@@ -43,10 +43,15 @@ def gen_hamiltonian_terms(L, Sx_list, Sz_list):
     Hxx = Sx_list[0] @ Sx_list[1]
     for i in range(1, L-1):
         Hxx += Sx_list[i] @ Sx_list[i+1]
+    if PBC:
+        Hxx += Sx_list[L-1]@Sx_list[0]
 
     Hzz = Sz_list[0] @ Sz_list[1]
     for i in range(1, L-1):
         Hzz += Sz_list[i] @ Sz_list[i+1]
+    if PBC:
+        Hzz += Sz_list[L-1] @ Sz_list[0]
+
 
     Hx = Sx_list[0]
     for Sx in Sx_list[1:L]:
@@ -60,10 +65,10 @@ def gen_hamiltonian_terms(L, Sx_list, Sz_list):
     return Hxx, Hzz, Hx, Hz
 # define Hamiltonian terms
 
-def gen_Ham(L = 11, model = 1, h = 10**(-2.5), k = 1.):
+def gen_Ham(L = 11, model = 1, h = 10**(-2.5), k = 1., PBC = True):
 
     Sx_list, Sz_list = gen_spin_operators(L)
-    Hxx, Hzz, Hx, Hz = gen_hamiltonian_terms(L, Sx_list, Sz_list)
+    Hxx, Hzz, Hx, Hz = gen_hamiltonian_terms(L, Sx_list, Sz_list, PBC)
 
     g = 2.
     J = 1.
