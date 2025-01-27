@@ -124,7 +124,7 @@ def fourier_space(x_series):
     # shift results accordingly
     Ck = np.fft.fftshift(ft)
 
-    if n % 2 == 1:
+    if n % 2 == 0:
         # extend the results to the whole Brillouin zone (right border included)
         momenta = np.append(momenta, -momenta[0])
         Ck = np.append(Ck, Ck[0])
@@ -145,9 +145,9 @@ def get_Swk(corrs, L, dt = 1e-2): #corrs as T x X matrix as input
     print('Compute Fourier transform')
     # Fourier transform in space
     if L % 2 == 0:
-        corrs_tk = np.zeros((corrs.shape[0], corrs.shape[1]), dtype=complex)
-    else:
         corrs_tk = np.zeros((corrs.shape[0], corrs.shape[1]+1), dtype=complex)
+    else:
+        corrs_tk = np.zeros((corrs.shape[0], corrs.shape[1]), dtype=complex)
     for i in np.arange(corrs.shape[0]):
         momenta, Ck = fourier_space(corrs[i,:])
         corrs_tk[i, :] = Ck
@@ -172,9 +172,12 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
 
     K_min = momenta[0]
     K_max = momenta[-1]
+
     #Kmin = Kmax
     # num. of momenta = K
-    print(momenta)
+    print(momenta.shape)
+    print(K)
+
 
     W_min = freqs[index]
     W_max = freqs[index+interval]
@@ -186,7 +189,7 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
             extent = [K_min, K_max, W_min, W_max]
             )
 
-    omega = g - 2 * J * np.cos(momenta)  # The dispersion relation
+    omega = 2*g - 2 * J * np.cos(momenta)  # The dispersion relation
     plt.plot(momenta, omega, color='yellow', linestyle='--', linewidth=1.5, label='dispersion relation E(k)')
 
     plt.colorbar(fraction=0.046, pad=0.04)
@@ -225,7 +228,7 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs,
     Swk = np.abs(Swk[index:(index+interval), :])
     interp_Swk = np.abs(interp_Swk[index:(index+interval), :])
 
-    omega = g - 2 * J * np.cos(momenta)  # The dispersion relation
+    omega = 2 * g - 2 * J * np.cos(momenta)  # The dispersion relation
     
     # Data and titles for each subplot
     data = [
