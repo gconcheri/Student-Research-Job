@@ -65,7 +65,7 @@ def gen_hamiltonian_terms(L, Sx_list, Sz_list, PBC):
     return Hxx, Hzz, Hx, Hz
 # define Hamiltonian terms
 
-def gen_Ham(L = 11, model = 1, h = 10**(-2.5), k = 1., PBC = True):
+def gen_Ham(L = 11, model = 0, h = 10**(-2.5), k = 1., PBC = True):
 
     Sx_list, Sz_list = gen_spin_operators(L)
     Hxx, Hzz, Hx, Hz = gen_hamiltonian_terms(L, Sx_list, Sz_list, PBC)
@@ -74,12 +74,12 @@ def gen_Ham(L = 11, model = 1, h = 10**(-2.5), k = 1., PBC = True):
     J = 1.
     H = -J * Hxx -g * Hz
 
-    if model == 2:
+    if model == 1:
             H = H - k * Hzz
-    elif model == 3 or model ==4:
+    elif model == 2 or model == 3:
         g = 0.5
         H = H + h*Hx
-        if model ==4:
+        if model == 3:
             k = 0.5
             H = H - k *Hzz
 
@@ -159,27 +159,3 @@ def correlator_Chebyshev(D_list, t_matrix, H, dt= 1e-2, n=10):
     corr = corr.reshape(D, a, b)
 
     return corr
-
-
-    
-import scipy.fft as fft
-
-def FT(Ct, t_list, x_list, nw=4):
-    """
-    full complex data as input. 
-    data only for positive time.
-    """
-    #Ct will now be matrix X x T
-    
-    n = len(t_list)
-    Wfunlist = [np.cos(np.pi*t_list[t]/(2*t_list[-1]))**nw  for t in range(n)]
-    a,b = Ct.shape 
-    input_list = np.zeros((a,b), dtype = np.complex128)
-    FTresult = np.zeros((a,b), dtype = np.complex128)
-
-    for i in range(a):
-        input_list[i,:] = Wfunlist[:] * (np.array(Ct[i,:]))
-    
-    FTresult = fft.fft2(input_list)
-    
-    return FTresult

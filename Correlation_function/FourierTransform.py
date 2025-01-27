@@ -1,5 +1,6 @@
 import numpy as np
-import scipy as sp
+import matplotlib.pyplot as plt
+
 
 
 # Fourier transform the time-domain and space-domain with windowing function cos(pi/2 * t/T)**nw
@@ -131,11 +132,11 @@ def fourier_space(x_series):
     return momenta, Ck
 
 
-def Swk(corrs, L, dt = 1e-2): #corrs as T x X matrix as input
+def get_Swk(corrs, L, dt = 1e-2): #corrs as T x X matrix as input
     # Rearrange corrs such that position 0 corresponds to the perturbed site
     # (distance 0 to perturbation)
-
     xi = L//2
+
     c_temp = np.zeros(corrs.shape, dtype=complex)
     c_temp[:, :L-xi] = corrs[:, xi:]
     c_temp[:, L-xi:] = corrs[:, :xi]
@@ -158,6 +159,205 @@ def Swk(corrs, L, dt = 1e-2): #corrs as T x X matrix as input
         Swk[:, k] = Sw
     print('finished')
 
-    #print(freqs)
+    #Swk is of the form (W,K)
 
-    return Swk
+    return Swk, momenta, freqs
+
+def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), interp = False):
+    plt.figure(figsize=fig)
+    W, K = Swk.shape
+
+    index = int(np.where(freqs == 0)[0])
+    print(index)
+
+    K_min = momenta[0]
+    K_max = momenta[-1]
+    #Kmin = Kmax
+    # num. of momenta = K
+    print(momenta)
+
+    W_min = freqs[index]
+    W_max = freqs[index+interval]
+
+    plt.imshow(np.abs(Swk[index:(index+interval), :]), aspect = 'auto', 
+            interpolation = 'none',
+            origin='lower', 
+            cmap='inferno',
+            extent = [K_min, K_max, W_min, W_max]
+            )
+
+    omega = g - 2 * J * np.cos(momenta)  # The dispersion relation
+    plt.plot(momenta, omega, color='yellow', linestyle='--', linewidth=1.5, label='dispersion relation E(k)')
+
+    plt.colorbar(fraction=0.046, pad=0.04)
+    if interp == True:
+        plt.title(r'abs ED $Cs(\omega,k)$')
+    else:
+        plt.title(r'abs ID $Cs(\omega,k)$')
+
+    plt.xlabel('momentum k')
+    plt.ylabel(r'frequency $\omega$')
+
+    plt.legend()
+    plt.plot()
+
+
+def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs,
+                g = 2., J = 1., interval = 20):
+    
+    #W, K = Swk.shape
+
+    index = int(np.where(freqs == 0)[0])
+    interp_index = int(np.where(interp_freqs == 0)[0])
+
+    K_min = momenta[0]
+    K_max = momenta[-1]
+
+    W_min = freqs[index]
+    W_max = freqs[index+interval]
+
+    Kinterp_min = interp_momenta[0]
+    Kinterp_max = interp_momenta[-1]
+
+    Winterp_min = interp_freqs[interp_index]
+    Winterp_max = interp_freqs[interp_index+interval]
+
+    Swk = np.abs(Swk[index:(index+interval), :])
+    interp_Swk = np.abs(interp_Swk[index:(index+interval), :])
+
+    omega = g - 2 * J * np.cos(momenta)  # The dispersion relation
+    
+    # Data and titles for each subplot
+    data = [
+        (Swk, r'abs ED $Cs(\omega,k)$', [K_min, K_max, W_min, W_max]),
+        (interp_Swk, r'abs ID $Cs(\omega,k)$', [Kinterp_min, Kinterp_max, Winterp_min, Winterp_max]),
+        (Swk-interp_Swk, 'abs theo - iter', [K_min, K_max, W_min, W_max])
+    ]
+
+    rows, cols = 1, 3  # Define grid dimensions
+
+    # Create subplots
+    fig, axs = plt.subplots(rows, cols, figsize=(cols*4, rows*4))
+
+    ee = 0 
+    # Loop through data and subplots
+    for ax, (image, title, extent) in zip(axs.flat, data):
+        ee += 1
+        im = ax.imshow(image, aspect='auto', 
+                        interpolation='none', 
+                        origin = 'lower', 
+                        cmap = 'inferno',
+                        extent = extent)
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Add colorbar
+        ax.set_title(title)
+        ax.set(xlabel = 'momentum (k)', ylabel = r'frequency ($\omega$)')
+        if ee < 3:
+            ax.plot(momenta, omega, color='yellow', linestyle='--', linewidth=1.5, label='dispersion relation E(k)')
+        ax.legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+#     #Jupyter cell to plot Skw by using functions FT or FT_different
+# #It's a first not refined way of plotting without centering the plot, without placing the extents and so on
+
+# D = L
+# a, b = Cs.shape
+# interp_Cs = func_interp.T.reshape(a, b)
+
+# FTresult = FT(Ct=Cs, t_list=np.arange(N)*dt, x_list = np.arange(D), nw=3)
+# FTresult_i = FT(Ct=interp_Cs, t_list=np.arange(N)*dt, x_list = np.arange(D), nw=3)
+
+# print(FTresult.shape) #FT result is of the form (K, W)
+# print(FTresult_i.shape)
+
+# FTresult = FTresult.T #now FT result is of the form (W, K)
+# FTresult_i = FTresult_i.T
+
+# # Define the threshold
+# threshold = 30
+
+# # Discard rows where all elements are below the threshold
+# rows_mask = np.any(np.abs(FTresult) >= threshold, axis=1)  # Check if any element in a row meets the threshold
+# FTresult = FTresult[rows_mask, :]
+# FTresult_i = FTresult_i[rows_mask, :]
+
+# # Discard columns where all elements are below the threshold
+# columns_mask = np.any(np.abs(FTresult) >= threshold, axis=0)  # Check if any element in a column meets the threshold
+# FTresult = FTresult[:, columns_mask]
+# FTresult_i = FTresult_i[:, columns_mask]
+
+
+# rows, cols = 2, 3  # Define grid dimensions
+
+
+# # Data and titles for each subplot
+# data = [
+#     (np.real(FTresult), r'real ED $Cs(\omega,k)$'),
+#     (np.real(FTresult_i), r'real ID $Cs(\omega,k)$'),
+#     (np.real(FTresult) - np.real(FTresult_i), 'real theo - inter'),
+#     (np.imag(FTresult), r'imaginary ED $Cs(\omega,k)'),
+#     (np.imag(FTresult_i), r'imaginary ID $Cs(\omega,k)$'),
+#     (np.imag(FTresult) - np.imag(FTresult_i), 'imag theo - inter')
+# ]
+
+# # Create subplots
+# fig, axs = plt.subplots(rows, cols, figsize=(16, 8))
+
+# # Loop through data and subplots
+# for ax, (image, title) in zip(axs.flat, data):
+#     im = ax.imshow(image, aspect='auto', interpolation='none')
+#     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Add colorbar
+#     ax.set_title(title)
+
+# plt.tight_layout()
+# plt.show()
+
+#---------------------------------------------------
+
+
+#old way of doing Fourier Transform, added to TCI and Chebyshev 
+# loops in jupyter file 'Correlation_function_models.ipynb'
+
+# FTresult = FT.FT(Ct=Cs, t_list=np.arange(N)*dt, x_list = np.arange(D), nw=3)
+# FTresult_i = FT.FT(Ct=interp_Cs, t_list=np.arange(N)*dt, x_list = np.arange(D), nw=3)
+
+# FTresult = FTresult.T
+# FTresult_i = FTresult_i.T
+
+# # Discard rows where all elements are below the threshold
+# rows_mask = np.any(np.abs(FTresult) >= threshold, axis=1)  # Check if any element in a row meets the threshold
+# FTresult = FTresult[rows_mask, :]
+# FTresult_i = FTresult_i[rows_mask, :]
+
+# # # Discard columns where all elements are below the threshold
+# columns_mask = np.any(np.abs(FTresult) >= threshold, axis=0)  # Check if any element in a column meets the threshold
+# FTresult = FTresult[:, columns_mask]
+# FTresult_i = FTresult_i[:, columns_mask]
+
+# # Data and titles for each subplot
+# data = [
+#     #(np.real(FTresult), r'real ED $Cs(\omega,k)$'),
+#     #(np.real(FTresult_i), r'real ID $Cs(\omega,k)$'),
+#     #(np.real(FTresult) - np.real(FTresult_i), 'real theo - inter'),
+#     #(np.imag(FTresult), r'imaginary ED $Cs(\omega,k)$'),
+#     #(np.imag(FTresult_i), r'imaginary ID $Cs(\omega,k)$'),
+#     #(np.imag(FTresult) - np.imag(FTresult_i), 'imag theo - inter'),
+#     (np.abs(FTresult), r'abs ED $Cs(\omega,k)$'),
+#     (np.abs(FTresult_i), r'abs ID $Cs(\omega,k)$'),
+#     (np.abs(FTresult)-np.abs(FTresult_i), 'abs theo - iter')
+# ]
+
+# rows, cols = 1, 3  # Define grid dimensions
+
+# # Create subplots
+# fig, axs = plt.subplots(rows, cols, figsize=(cols*4, rows*4))
+
+# # Loop through data and subplots
+# for ax, (image, title) in zip(axs.flat, data):
+#     im = ax.imshow(image, aspect='auto', interpolation='none')
+#     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Add colorbar
+#     ax.set_title(title)
+# plt.tight_layout()
+# plt.show()
