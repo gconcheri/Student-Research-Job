@@ -201,6 +201,8 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     plt.xlabel('momentum k')
     plt.ylabel(r'frequency $\omega$')
 
+    plt.xticks(momenta)
+
     plt.legend()
     plt.plot()
 
