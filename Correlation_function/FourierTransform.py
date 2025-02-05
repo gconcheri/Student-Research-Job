@@ -206,8 +206,8 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     plt.legend()
     plt.plot()
 
-
-def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs,
+#here idx_model represents the index (either 0,1,2,3) referred to one the four models 
+def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_model,
                 g = 2., J = 1., interval = 20):
     
     #W, K = Swk.shape
@@ -230,13 +230,13 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs,
     Swk = np.abs(Swk[index:(index+interval), :])
     interp_Swk = np.abs(interp_Swk[index:(index+interval), :])
 
-    omega = 2 * g - 2 * J * np.cos(momenta)  # The dispersion relation
-    
+    omega = disp_relation(momenta = momenta, idx_model = idx_model)
+
     # Data and titles for each subplot
     data = [
         (Swk, r'abs ED $Cs(\omega,k)$', [K_min, K_max, W_min, W_max]),
         (interp_Swk, r'abs ID $Cs(\omega,k)$', [Kinterp_min, Kinterp_max, Winterp_min, Winterp_max]),
-        (Swk-interp_Swk, 'abs theo - iter', [K_min, K_max, W_min, W_max])
+        (np.abs(Swk-interp_Swk), 'abs theo - iter', [K_min, K_max, W_min, W_max])
     ]
 
     rows, cols = 1, 3  # Define grid dimensions
@@ -262,6 +262,16 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs,
 
     plt.tight_layout()
     plt.show()
+
+
+def disp_relation(momenta, idx_model = None, g =2., J =1., k = 0.1, g_par = 0.5): # Calculates the theoretically expected dispersion relation for each model (esatta per model= 0,1 , per model 2,3 non proprio)
+
+    if idx_model==0 or idx_model == None:
+        return 2 * g - 2 * J * np.cos(momenta)  
+    elif idx_model==1:
+        return 4*k + 2 * g - 2 * J * np.cos(momenta)  
+    else: 
+        return 4* J - 2* g * np.cos(momenta)
 
 
 #     #Jupyter cell to plot Skw by using functions FT or FT_different
@@ -322,8 +332,8 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs,
 #---------------------------------------------------
 
 
-#old way of doing Fourier Transform, added to TCI and Chebyshev 
-# loops in jupyter file 'Correlation_function_models.ipynb'
+#old way of doing Fourier Transform, added to TCI and Chebyshev loops 
+# in jupyter file 'Correlation_function_models.ipynb'
 
 # FTresult = FT.FT(Ct=Cs, t_list=np.arange(N)*dt, x_list = np.arange(D), nw=3)
 # FTresult_i = FT.FT(Ct=interp_Cs, t_list=np.arange(N)*dt, x_list = np.arange(D), nw=3)

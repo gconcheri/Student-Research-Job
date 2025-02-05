@@ -65,28 +65,24 @@ def gen_hamiltonian_terms(L, Sx_list, Sz_list, PBC):
     return Hxx, Hzz, Hx, Hz
 # define Hamiltonian terms
 
-def gen_Ham(L = 11, model = 0, h = 10**(-2.5), k = 1., PBC = True):
+def gen_Ham(L = 11, model = 0, h = 10**(-2.5), k = 0.1, g = 2., g_par = 0.5, J = 1.,  PBC = True):
 
     Sx_list, Sz_list = gen_spin_operators(L)
     Hxx, Hzz, Hx, Hz = gen_hamiltonian_terms(L, Sx_list, Sz_list, PBC)
 
-    g = 2.
-    J = 1.
     H = -J * Hxx -g * Hz
 
     if model == 1:
             H = H - k * Hzz
     elif model == 2 or model == 3:
-        g = 0.5
-        H = H + h*Hx
+        H = -J * Hxx - g_par * Hz + h*Hx
         if model == 3:
-            k = 0.5
             H = H - k *Hzz
 
     return H
 
 
-def correlator(H, L = 11., n = 10, dt = 1e-2):
+def correlator(H, L = 11., n = 10, dt = 1e-2, Sx = True):
 
     Sx_list, Sz_list = gen_spin_operators(L)
 
@@ -100,13 +96,15 @@ def correlator(H, L = 11., n = 10, dt = 1e-2):
     # print('Ground state energy:', E0)
     psi_0 = psi.copy()
 
-    # put in excitation
-    psi = Sx_list[L//2] @ psi
+    if Sx == True: # calculate corr C = <psi| e^iHt X_ell e^-iHt X_L/2 |psi>
+        psi = Sx_list[L//2] @ psi     # put in excitation
+        psil = np.array([Sx_list[l] @ psi_0 for l in range(L)])
+    else:  # calculate corr C = <psi| e^iHt Z_ell e^-iHt Z_L/2 |psi>
+        psi = Sz_list[L//2] @ psi
+        psil = np.array([Sz_list[l] @ psi_0 for l in range(L)])
+
     E1 = np.dot(psi.conj(), H @ psi).real
     #print('Excited state energy:', E1)
-
-    psil = np.array([Sx_list[l] @ psi_0 for l in range(L)])
-
 
     # evolve states in time
     psis = expm_multiply(-1j * H,
@@ -116,9 +114,10 @@ def correlator(H, L = 11., n = 10, dt = 1e-2):
                         num=N,
                         endpoint=False)
 
-    # calculate correlators C = <psi| e^iHt X_ell e^-iHt X_L/2 |psi>
+    
     Cs = np.einsum('lj, ij -> li', psil.conj(), psis) * np.exp(1j * E0 * np.arange(N) * dt)
     #form is (L,2**n) <-> (X,T)
+
     # plt.figure(figsize=(8, 4))
     # plt.imshow(Cs.real, aspect = 'auto', 
     #         interpolation = 'none'
@@ -130,22 +129,24 @@ def correlator(H, L = 11., n = 10, dt = 1e-2):
     return Cs
 
 
-def correlator_Chebyshev(D_list, t_matrix, H, dt= 1e-2, n=10):
+def correlator_Chebyshev(D_list, t_matrix, H, dt= 1e-2, n=10, Sx = True):
     N = 2**n
     D = len(D_list)
     Sx_list, Sz_list = gen_spin_operators(D)
-
 
     # get ground state
     E, psi = eigsh(H, k=1, which='SA')
     E0, psi = np.squeeze(E), np.squeeze(psi)
     psi_0 = psi.copy()
 
-    # put in excitation
-    psi = Sx_list[D//2] @ psi
+    if Sx == True: # calculate corr C = <psi| e^iHt X_ell e^-iHt X_L/2 |psi>
+        psi = Sx_list[D//2] @ psi     # put in excitation
+        psil = np.array([Sx_list[l] @ psi_0 for l in range(D)])
+    else:  # calculate corr C = <psi| e^iHt Z_ell e^-iHt Z_L/2 |psi>
+        psi = Sz_list[D//2] @ psi # put in excitation
+        psil = np.array([Sz_list[l] @ psi_0 for l in range(D)])
+ 
     E1 = np.dot(psi.conj(), H @ psi).real
-
-    psil = np.array([Sx_list[l] @ psi_0 for l in range(D)])
 
     a,b = t_matrix.shape
 
