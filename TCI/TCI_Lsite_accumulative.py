@@ -1,34 +1,28 @@
+import time
 import numpy as np
-from scipy.linalg.interpolative import interp_decomp
 import matplotlib.pyplot as plt
 
-# Use scipy's implementation of the interpolative decomposition
-# Instead of the matrix cross interpolation M = C @ P^-1 @ R
-# it factorizes as M = A @ P with A = M[:, idx]
-def interpolative_decomposition(M, eps_or_k=1e-5, k_min=2):
-    r = min(M.shape)
-    if r <= k_min:
-        k = r
-        idx, proj = interp_decomp(M, eps_or_k=k) #eps_or_k = precision of decomposition
-    elif isinstance(eps_or_k, int): #checks if eps is an integer
-        k = min(r, eps_or_k)
-        idx, proj = interp_decomp(M, eps_or_k=k)
-    else:
-        k, idx,  proj = interp_decomp(M, eps_or_k=eps_or_k)
-        if k <= k_min:
-            k = min(r, k_min) #is it not enough to put k = k_min? 
-                              #r>k_min otherwise first condition would have been true
-            idx, proj = interp_decomp(M, eps_or_k=k)
-    A = M[:, idx[:k]]
-    P = np.concatenate([np.eye(k), proj], axis=1)[:, np.argsort(idx)]
-    return A, P, k, idx[:k]
+# %%
+def find_ID_coeffs_via_iterated_leastsq(A, J, notJ=None):
+    """
+    Given a set of columns A[:, J], finds a matrix Z such that
+    approximately A = A[:, J] @ Z by iteratively solving for
+    each column A[:, J] @ Z[:, j] = A[:, j] with least squares.
+    """
+    # number of columns
+    _, N = A.shape
+    # fill empty matrix with solutions
+    Z = np.zeros((len(J), N), dtype=A.dtype)
+    # set columns J to identity in Z
+    Z[np.arange(len(J)), J] = 1.
+    # for the rest solve A[:, J] @ x = A[:, j] for x, then Z[:, j] = x
+    if notJ is None:
+        notJ = list(set(range(N)) - set(J))
+    x = np.linalg.lstsq(A[:, J], A[:, notJ], rcond=None)[0] # x.shape = (len(J), N)
+    Z[:, notJ] = x
+    return Z
 
-# k is the 'compressed' rank = number of pivot columns
-# idx is the array with entries the indeces of the pivot columns
-# proj = matrix R s.t. M[:,idx[:k]]*R = M[:,idx[k:]] 
-# P = matrix s.t.  M[:,idx[:k]]*P = M (approximated)
-
-
+#%%
 class function:  # certain function f(x) with x given as binary
 
     def __init__(self, f):
@@ -56,8 +50,8 @@ class function:  # certain function f(x) with x given as binary
 """Now val defined in this class will be an array of shape (D,) with D number of points
 in which correlation function is evaluated in space"""
 
-
-def tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, iters=6):
+#%%
+def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, iters=6):
     #tensor must be function s.t. f(*il,σj,σj+1,*jr).shape = (D,) with D number of points in space
     # random initial choice for index sets
     idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
@@ -108,7 +102,8 @@ def tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, it
 
     return As, J, evals, err_2, err_max, func_interp
 
-def left_to_right_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
+
+def left_to_right_sweep(tensor, As, I, J, L, d, D):
     # sweep left to right
     for bond in range(L-1):
         # construct local two-site tensor
@@ -138,7 +133,7 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
         As[bond+1] = A.T.reshape(k, d, chir, D)
     return As, I
 
-def right_to_left_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
+def right_to_left_sweep(tensor, As, I, J, L, d, D):
     # sweep right to left
     for bond in range(L-2,-1,-1):
         # construct local two-site tensor

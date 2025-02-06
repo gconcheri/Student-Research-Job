@@ -71,17 +71,31 @@ def accumulative_tensor_cross_interpolation(tensor, func_vals, L, d=2, sweeps = 
         I = left_to_right_sweep(tensor, I, J, L, d, dtype)
     As = get_MPS_right_to_left_sweep(tensor, I, J, L, d, dtype)
 
-    print('final err_max: ', err_max[-1])
-    print('final err_2: ', err_2[-1])
+    func_interp = interpolate(As)
+
+    difference = func_vals-func_interp
+    err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
+    err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
+
+    print('final err_max: ', err_max)
+    print('final err_2: ', err_2)
     print()
     print('repeated evaluations: ', tensor.numcacheused)
-    print('unique evaluations', tensor.unique)
+    print('unique evaluations: ', tensor.unique)
+    print('should be equal to unique: ', tensor.cache_size())
     print('unique + repeated: ', tensor.numcacheused + tensor.unique)
     print('total evaluations: ', tensor.numvals)
 
 
     return As, J, eval, err_2, err_max
 
+def interpolate(As):
+    func_interp = np.squeeze(As[0])
+    for A in As[1:]:
+        func_interp = np.einsum('ia, ajb -> ijb', func_interp, A)
+        func_interp = func_interp.reshape(-1, A.shape[-1])
+    func_interp = np.squeeze(func_interp)
+    return func_interp
 
 def left_to_right_sweep(tensor, I, J, L, d, dtype):
     # sweep left to right
@@ -106,6 +120,7 @@ def left_to_right_sweep(tensor, I, J, L, d, dtype):
                                       axis=1)
                             for s1 in range(d)],
                            axis=0)
+
             # turn multi-indices I[bond+1] c I[bond] x {0, ..., d-1} into numbered indexes
             I2 = list(np.argmax((I[bond+1][:, None] == all_idxs[None]).all(axis=2),
                                 axis=1))
