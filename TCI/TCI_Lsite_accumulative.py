@@ -51,22 +51,45 @@ class function:  # certain function f(x) with x given as binary
 in which correlation function is evaluated in space"""
 
 #%%
-def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, iters=6):
+def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=6):
     #tensor must be function s.t. f(*il,σj,σj+1,*jr).shape = (D,) with D number of points in space
-    # random initial choice for index sets
+    # initial choice is all zeros
+    #idxs = np.zeros((L,), dtype=np.int32)
+
     idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
-    As = [None] * L
-    I = [idxs[:j].reshape(1, -1) for j in range(L)] # creates list of I_l arrays
-    J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)] # list of J_l
+
+
+    # the following commented code doesn't work in this case because we would have to define the first As[0] 
+    # to have legs: chil, d, chir, D, whereas other As[1], As[2] and so on should have legs: chil d chir !!!!
+    # what we could do is take As list calculated from TCI_Lsite.py and plug it in here!
+
+    # As = [np.array([[[tensor(*idxs[:j], i, *idxs[j+1:])] for i in range(d)]])
+    #       for j in range(L)]
+    # if As[0][0,0,0] != 0:
+    #     As[1:] /= tensor(*idxs)
+    dtype = np.complex128
+
+    As = []
+    As.append(np.zeros((d, 1, D), dtype=dtype)[None])
+    for i in range(L-2):
+        As.append(np.zeros((1,d,1), dtype=dtype))
+    As.append(np.zeros((1,d), dtype=dtype)[..., None])
+    print(As[0].shape)
+    print(As[1].shape)
+    print(As[-1].shape)
+
+    J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)]
+    I = [idxs[:j].reshape(1, -1) for j in range(L)]
+
+
     # sweep
     for i in range(iters):
         #print(f'Sweep: {i+1:d}.')
-        As, I = left_to_right_sweep(tensor, As, I, J, L, d, D, eps_or_chi)
-        As, J = right_to_left_sweep(tensor, As, I, J, L, d, D, eps_or_chi)
+        As, I = left_to_right_sweep(tensor, As, I, J, L, d, D, dtype)
+        As, J = right_to_left_sweep(tensor, As, I, J, L, d, D, dtype)
     #in theory, at the end of these sweeps the first tensor of As should be the only one with the additional leg of dim D
 
     #func_interp = np.squeeze(As[0]) removes any singleton dimensions (dimensions of size 1).
-    # we now have func_interp.shape = (d,chir,D) - I think this is wrong now
 
     func_interp = np.squeeze(As[-1]) #now has two legs: ab
     for A in As[-2:0:-1]:
@@ -103,14 +126,15 @@ def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or
     return As, J, evals, err_2, err_max, func_interp
 
 
-def left_to_right_sweep(tensor, As, I, J, L, d, D):
+def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype):
     # sweep left to right
     for bond in range(L-1):
+        #print(bond)
         # construct local two-site tensor
         chil, _ = I[bond].shape #chil = number of rows in array I_l: number of combinations (σ1,..,σl)
         chir, _ = J[bond+1].shape #which corresponds to number of "points" on which I am evaluating function
         
-        Pi = np.zeros((D, chil, d, d, chir), dtype=np.complex128)
+        Pi = np.zeros((D, chil, d, d, chir), dtype=dtype)
         for il in range(chil):
             for s1 in range(d):
                 for s2 in range(d):
@@ -121,26 +145,64 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D):
         #print("Pi.shape = ", Pi.shape)
         Pi = np.transpose(Pi, [1,2,3,4,0])
         Pi = Pi.reshape(chil * d, d * chir * D)
-        # decompose using interpolative decomposition:
-        # Pi = P^T @ A^T, A^T = Pi[idx,:]
-        A, P, k, idx = interpolative_decomposition(Pi.T, eps_or_k=eps_or_chi)
-        #print("A.shape " ,A.shape)
-        #print("P.shape ", P.shape)
-        # update indices using idxs c I[bond] x {0, 1, ..., d-1}
-        I[bond+1] = np.array([np.append(I[bond][i//d], [i%d]) for i in idx])
+
+        # all rows of Pi = I[bond] x {0, ..., d-1}
+        all_idxs = np.concatenate(
+                       [np.append(I[bond],
+                                  s1 * np.ones((chil, 1), dtype=np.int32),
+                                  axis=1)
+                        for s1 in range(d)],
+                       axis=0)
+        # turn multi-indices I[bond+1] c I[bond] x {0, ..., d-1} into numbered indexes
+        I2 = list(np.argmax((I[bond+1][:, None] == all_idxs[None]).all(axis=2),
+                            axis=1))
+        # update index set I2
+        N = Pi.shape[0]
+        notI2 = list(set(range(N)) - set(I2)) # get indices not in I2
+        
+        if len(I[bond+1]) == N:
+            pass # don't add a row if set of rows is already maximal
+        else:
+            # get current iteration for Pi_tilde from MPS
+            Pi_tilde = np.einsum('abcd, cef -> abdef', As[bond], As[bond+1]) #chil d_l [chir] D, [chil] d_l+1 chir -> chil d_l D d_l+1 chir
+            Pi_tilde = np.transpose(Pi_tilde, [0,1,3,4,2])
+            #print(Pi_tilde.shape)
+            Pi_tilde = Pi_tilde.reshape(Pi.shape)
+            # compute errors and update index set
+            errs = np.linalg.norm(Pi[notI2, :] - Pi_tilde[notI2, :], axis=1) # row errors
+            ell = notI2[np.argmax(errs)]
+            I2.append(ell)
+            notI2.remove(ell)
+            I[bond+1] = np.append(I[bond+1],
+                                  all_idxs[None, ell],
+                                  axis=0)
+        # shift canonicality center by ID with updated index set
+        #find Z s.t. Pi = Z^T @ Pi[I2,:]
+        Z = find_ID_coeffs_via_iterated_leastsq(Pi.T, J=I2, notJ=notI2)
+        chi = len(I2)
         # update tensors
-        As[bond] = P.T.reshape(chil, d, k)
-        As[bond+1] = A.T.reshape(k, d, chir, D)
+        As[bond] = Z.T.reshape(chil, d, chi)
+        As[bond+1] = Pi[I2, :].reshape(chi, d, chir, D)
+        # # decompose using interpolative decomposition:
+        # # Pi = P^T @ A^T, A^T = Pi[idx,:]
+        # A, P, k, idx = interpolative_decomposition(Pi.T, eps_or_k=eps_or_chi)
+        # #print("A.shape " ,A.shape)
+        # #print("P.shape ", P.shape)
+        # # update indices using idxs c I[bond] x {0, 1, ..., d-1}
+        # I[bond+1] = np.array([np.append(I[bond][i//d], [i%d]) for i in idx])
+        # # update tensors
+        # As[bond] = P.T.reshape(chil, d, k)
+        # As[bond+1] = A.T.reshape(k, d, chir, D)
     return As, I
 
-def right_to_left_sweep(tensor, As, I, J, L, d, D):
+def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype):
     # sweep right to left
     for bond in range(L-2,-1,-1):
         # construct local two-site tensor
         chil, _ = I[bond].shape
         chir, _ = J[bond+1].shape
 
-        Pi = np.zeros((D, chil, d, d, chir), dtype=np.complex128)
+        Pi = np.zeros((D, chil, d, d, chir), dtype=dtype)
         for il in range(chil):
             for s1 in range(d):
                 for s2 in range(d):
@@ -149,12 +211,48 @@ def right_to_left_sweep(tensor, As, I, J, L, d, D):
                         #print(val.shape)
                         Pi[:,il,s1,s2,jr] = val
         Pi = Pi.reshape(D * chil * d, d * chir)
-        # decompose using interpolative decomposition:
-        # Pi = A @ P, A = Pi[:,idx]
-        A, P, k, idx = interpolative_decomposition(Pi, eps_or_k=eps_or_chi)
-        # update indices using idxs c {0, 1, ..., d-1} x J[bond+1]
-        J[bond] = np.array([np.append([i//chir], J[bond+1][i%chir]) for i in idx])
+
+        # all columns of Pi = {0, ..., d-1} x J[bond+1]
+        all_idxs = np.concatenate(
+                       [np.append(s2 * np.ones((chir, 1), dtype=np.int32),
+                                  J[bond+1],
+                                  axis=1)
+                        for s2 in range(d)],
+                       axis=0)
+        # turn multi-indices J[bond] c {0, ..., d-1} x J[bond+1] into numbered indexes
+        J1 = list(np.argmax((J[bond][:, None] == all_idxs[None]).all(axis=2),
+                            axis=1))
+        # update index set J1
+        N = Pi.shape[1]
+        notJ1 = list(set(range(N)) - set(J1)) # get indices not in J1
+        if len(J[bond]) == N:
+            pass # don't add a column if set of columns is already maximal
+        else:
+            # get current iteration for Pi_tilde from MPS
+            Pi_tilde = np.einsum('abc, dcef -> abdef', As[bond], As[bond+1]) #chil d_l [chir], D [chil] d_l+1 chir -> chil d_l D d_l+1 chir
+            Pi_tilde = np.transpose(Pi_tilde, [2,0,1,3,4])
+            Pi_tilde = Pi_tilde.reshape(Pi.shape)
+            # compute errors and update index set
+            errs = np.linalg.norm(Pi[:, notJ1] - Pi_tilde[:, notJ1], axis=0) # column errors
+            ell = notJ1[np.argmax(errs)]
+            J1.append(ell)
+            notJ1.remove(ell)
+            J[bond] = np.append(J[bond],
+                                all_idxs[None, ell],
+                                axis=0)
+        # shift canonicality center by ID with updated index set
+        Z = find_ID_coeffs_via_iterated_leastsq(Pi, J=J1, notJ=notJ1)
+        chi = len(J1)
         # update tensors
-        As[bond] = A.reshape(D, chil, d, k)
-        As[bond+1] = P.reshape(k, d, chir)
+        As[bond] = Pi[:, J1].reshape(D, chil, d, chi)
+        As[bond+1] = Z.reshape(chi, d, chir)
+
+        # # decompose using interpolative decomposition:
+        # # Pi = A @ P, A = Pi[:,idx]
+        # A, P, k, idx = interpolative_decomposition(Pi, eps_or_k=eps_or_chi)
+        # # update indices using idxs c {0, 1, ..., d-1} x J[bond+1]
+        # J[bond] = np.array([np.append([i//chir], J[bond+1][i%chir]) for i in idx])
+        # # update tensors
+        # As[bond] = A.reshape(D, chil, d, k)
+        # As[bond+1] = P.reshape(k, d, chir)
     return As, J
