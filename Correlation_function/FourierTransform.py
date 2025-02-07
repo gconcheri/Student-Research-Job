@@ -170,8 +170,9 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     index = int(np.where(freqs == 0)[0])
     print(index)
 
-    K_min = momenta[0]
-    K_max = momenta[-1]
+    delta_K = (momenta[1]-momenta[0])/2
+    K_min = momenta[0]-delta_K
+    K_max = momenta[-1]+delta_K
 
     #Kmin = -Kmax
     # num. of momenta = K
@@ -179,8 +180,9 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     print(momenta.shape)
     print(K)
 
-    W_min = freqs[index]
-    W_max = freqs[index+interval]
+    delta_w = (freqs[index+1]-freqs[index])/2
+    W_min = freqs[index]-delta_w
+    W_max = freqs[index+interval]+delta_w
 
     # sel_freqs = [W_min, W_max]
     # sel_momenta = [K_min, K_max]
@@ -207,6 +209,8 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     else:
         plt.title(r'abs ID $Cs(\omega,k)$')
 
+    plt.xlim(momenta[0], momenta[-1])
+
     plt.xlabel('momentum k')
     plt.ylabel(r'frequency $\omega$')
 
@@ -224,17 +228,21 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
     index = int(np.where(freqs == 0)[0])
     interp_index = int(np.where(interp_freqs == 0)[0])
 
-    K_min = momenta[0]
-    K_max = momenta[-1]
+    delta_K = (momenta[1]-momenta[0])/2
+    K_min = momenta[0]-delta_K
+    K_max = momenta[-1]+delta_K
 
-    W_min = freqs[index]
-    W_max = freqs[index+interval]
+    delta_w = (freqs[index+1]-freqs[index])/2
+    W_min = freqs[index]-delta_w
+    W_max = freqs[index+interval]+delta_w
 
-    Kinterp_min = interp_momenta[0]
-    Kinterp_max = interp_momenta[-1]
+    delta_Kinterp = (interp_momenta[1]-interp_momenta[0])/2
+    Kinterp_min = interp_momenta[0]-delta_Kinterp
+    Kinterp_max = interp_momenta[-1]+delta_Kinterp
 
-    Winterp_min = interp_freqs[interp_index]
-    Winterp_max = interp_freqs[interp_index+interval]
+    delta_winterp = (interp_freqs[index+1]-interp_freqs[index])/2
+    Winterp_min = interp_freqs[interp_index] - delta_winterp
+    Winterp_max = interp_freqs[interp_index+interval] + delta_winterp
 
     Swk = np.abs(Swk[index:(index+interval), :])
     interp_Swk = np.abs(interp_Swk[index:(index+interval), :])
@@ -265,12 +273,14 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)  # Add colorbar
         ax.set_title(title)
         ax.set(xlabel = 'momentum (k)', ylabel = r'frequency ($\omega$)')
+        ax.set(xlim = [momenta[0], momenta[-1]])
+
         if ee < 3:
             if idx_model<2: 
-                ax.plot(momenta, omega, color='yellow', linestyle='--', linewidth=1.5, label='dispersion relation E(k)')
+                ax.plot(momenta, omega, color='orange', linestyle='--', linewidth=2, label='dispersion relation E(k)')
             else:
-                ax.plot(momenta, omega[0], color='yellow', linestyle='--', linewidth=1.5, label='lower boundary E(k)')
-                ax.plot(momenta, omega[1], color='yellow', linestyle='--', linewidth=1.5, label='upper boundary E(k)')
+                ax.plot(momenta, omega[0], color='orange', linestyle='--', linewidth=2, label='lower boundary E(k)')
+                ax.plot(momenta, omega[1], color='orange', linestyle='dotted', linewidth=2, label='upper boundary E(k)')
         ax.legend()
 
     plt.tight_layout()
