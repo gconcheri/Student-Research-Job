@@ -173,14 +173,22 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     K_min = momenta[0]
     K_max = momenta[-1]
 
-    #Kmin = Kmax
+    #Kmin = -Kmax
     # num. of momenta = K
+
     print(momenta.shape)
     print(K)
 
-
     W_min = freqs[index]
     W_max = freqs[index+interval]
+
+    # sel_freqs = [W_min, W_max]
+    # sel_momenta = [K_min, K_max]
+    # sel_momenta_idx = [0,K-1]
+    # sel_freqs_idx = [0, interval-1]
+
+    # plt.xticks(sel_momenta_idx, sel_momenta)
+    # plt.yticks(sel_freqs_idx, sel_freqs)
 
     plt.imshow(np.abs(Swk[index:(index+interval), :]), aspect = 'auto', 
             interpolation = 'none',
@@ -189,8 +197,9 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
             extent = [K_min, K_max, W_min, W_max]
             )
 
+
     omega = 2*g - 2 * J * np.cos(momenta)  # The dispersion relation
-    plt.plot(momenta, omega, color='yellow', linestyle='--', linewidth=1.5, label='dispersion relation E(k)')
+    plt.plot(momenta, omega, color='yellow', linestyle='dotted', linewidth=1.5, label='dispersion relation E(k)')
 
     plt.colorbar(fraction=0.046, pad=0.04)
     if interp == True:
@@ -257,7 +266,11 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
         ax.set_title(title)
         ax.set(xlabel = 'momentum (k)', ylabel = r'frequency ($\omega$)')
         if ee < 3:
-            ax.plot(momenta, omega, color='yellow', linestyle='--', linewidth=1.5, label='dispersion relation E(k)')
+            if idx_model<2: 
+                ax.plot(momenta, omega, color='yellow', linestyle='--', linewidth=1.5, label='dispersion relation E(k)')
+            else:
+                ax.plot(momenta, omega[0], color='yellow', linestyle='--', linewidth=1.5, label='lower boundary E(k)')
+                ax.plot(momenta, omega[1], color='yellow', linestyle='--', linewidth=1.5, label='upper boundary E(k)')
         ax.legend()
 
     plt.tight_layout()
@@ -270,8 +283,9 @@ def disp_relation(momenta, idx_model = None, g =2., J =1., k = 0.1, g_par = 0.5)
         return 2 * g - 2 * J * np.cos(momenta)  
     elif idx_model==1:
         return 4*k + 2 * g - 2 * J * np.cos(momenta)  
-    else: 
-        return 4* J - 2* g * np.cos(momenta)
+    else:
+        return [4* J - 4 * g_par * np.cos(momenta/2), 4* J + 4* g_par * np.cos(momenta/2)]
+
 
 
 #     #Jupyter cell to plot Skw by using functions FT or FT_different
