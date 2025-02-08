@@ -99,9 +99,12 @@ def correlator(H, L = 11., n = 10, dt = 1e-2, Sx = True):
     if Sx == True: # calculate corr C = <psi| e^iHt X_ell e^-iHt X_L/2 |psi>
         psi = Sx_list[L//2] @ psi     # put in excitation
         psil = np.array([Sx_list[l] @ psi_0 for l in range(L)])
+        print(r"Expectation value $\bra{\psi_0} X_{L/2} \ket{psi_0}$= ", np.dot(psi_0.conj(), Sx_list[L//2] @ psi_0))
     else:  # calculate corr C = <psi| e^iHt Z_ell e^-iHt Z_L/2 |psi>
         psi = Sz_list[L//2] @ psi
         psil = np.array([Sz_list[l] @ psi_0 for l in range(L)])
+        print(r"Expectation value $\bra{\psi_0} Z_{L/2} \ket{psi_0}$= ", np.dot(psi_0.conj(), Sz_list[L//2] @ psi_0))
+
 
     E1 = np.dot(psi.conj(), H @ psi).real
     #print('Excited state energy:', E1)

@@ -220,7 +220,7 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     plt.plot()
 
 #here idx_model represents the index (either 0,1,2,3) referred to one the four models 
-def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_model,
+def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_model, g_par,
                 g = 2., J = 1., interval = 20):
     
     #W, K = Swk.shape
@@ -247,7 +247,7 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
     Swk = np.abs(Swk[index:(index+interval), :])
     interp_Swk = np.abs(interp_Swk[index:(index+interval), :])
 
-    omega = disp_relation(momenta = momenta, idx_model = idx_model)
+    omega = disp_relation(g_par = g_par, momenta = momenta, idx_model = idx_model)
 
     # Data and titles for each subplot
     data = [
