@@ -70,7 +70,7 @@ def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=
     dtype = np.complex128
 
     As = []
-    As.append(np.zeros((d, 1, D), dtype=dtype)[None])
+    As.append(np.ones((d, 1, D), dtype=dtype)[None])
     for i in range(L-2):
         As.append(np.zeros((1,d,1), dtype=dtype))
     As.append(np.zeros((1,d), dtype=dtype)[..., None])
@@ -163,11 +163,8 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype):
         if len(I[bond+1]) == N:
             pass # don't add a row if set of rows is already maximal
         else:
-            # get current iteration for Pi_tilde from MPS
-            Pi_tilde = np.einsum('abcd, cef -> abdef', As[bond], As[bond+1]) #chil d_l [chir] D, [chil] d_l+1 chir -> chil d_l D d_l+1 chir
-            Pi_tilde = np.transpose(Pi_tilde, [0,1,3,4,2])
-            #print(Pi_tilde.shape)
-            Pi_tilde = Pi_tilde.reshape(Pi.shape)
+            Z = find_ID_coeffs_via_iterated_leastsq(Pi.T, J=I2, notJ=notI2)
+            Pi_tilde = Z.T @ Pi[I2, :]
             # compute errors and update index set
             errs = np.linalg.norm(Pi[notI2, :] - Pi_tilde[notI2, :], axis=1) # row errors
             ell = notI2[np.argmax(errs)]
@@ -228,10 +225,9 @@ def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype):
         if len(J[bond]) == N:
             pass # don't add a column if set of columns is already maximal
         else:
-            # get current iteration for Pi_tilde from MPS
-            Pi_tilde = np.einsum('abc, dcef -> abdef', As[bond], As[bond+1]) #chil d_l [chir], D [chil] d_l+1 chir -> chil d_l D d_l+1 chir
-            Pi_tilde = np.transpose(Pi_tilde, [2,0,1,3,4])
-            Pi_tilde = Pi_tilde.reshape(Pi.shape)
+            # get current iteration for Pi_tilde from ID with columns in J1
+            Z = find_ID_coeffs_via_iterated_leastsq(Pi, J=J1, notJ=notJ1)
+            Pi_tilde = Pi[:, J1] @ Z            
             # compute errors and update index set
             errs = np.linalg.norm(Pi[:, notJ1] - Pi_tilde[:, notJ1], axis=0) # column errors
             ell = notJ1[np.argmax(errs)]
