@@ -54,9 +54,9 @@ in which correlation function is evaluated in space"""
 def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=6):
     #tensor must be function s.t. f(*il,σj,σj+1,*jr).shape = (D,) with D number of points in space
     # initial choice is all zeros
-    #idxs = np.zeros((L,), dtype=np.int32)
+    idxs = np.zeros((L,), dtype=np.int32)
 
-    idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
+    #idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
 
 
     # the following commented code doesn't work in this case because we would have to define the first As[0] 
