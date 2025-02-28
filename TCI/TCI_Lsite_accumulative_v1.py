@@ -51,7 +51,7 @@ class function:  # certain function f(x) with x given as binary
 in which correlation function is evaluated in space"""
 
 #%%
-def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=6):
+def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=6, euclidean = True):
     #tensor must be function s.t. f(*il,σj,σj+1,*jr).shape = (D,) with D number of points in space
     # initial choice is all zeros
     idxs = np.zeros((L,), dtype=np.int32)
@@ -85,8 +85,8 @@ def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=
     # sweep
     for i in range(iters):
         #print(f'Sweep: {i+1:d}.')
-        As, I = left_to_right_sweep(tensor, As, I, J, L, d, D, dtype)
-        As, J = right_to_left_sweep(tensor, As, I, J, L, d, D, dtype)
+        As, I = left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean)
+        As, J = right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean)
     #in theory, at the end of these sweeps the first tensor of As should be the only one with the additional leg of dim D
 
     #func_interp = np.squeeze(As[0]) removes any singleton dimensions (dimensions of size 1).
@@ -126,7 +126,7 @@ def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=
     return As, J, evals, err_2, err_max, func_interp
 
 
-def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype):
+def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
     # sweep left to right
     for bond in range(L-1):
         #print(bond)
@@ -166,7 +166,10 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype):
             Z = find_ID_coeffs_via_iterated_leastsq(Pi.T, J=I2, notJ=notI2)
             Pi_tilde = Z.T @ Pi[I2, :]
             # compute errors and update index set
-            errs = np.linalg.norm(Pi[notI2, :] - Pi_tilde[notI2, :], axis=1) # row errors
+            if euclidean == True:
+                errs = np.linalg.norm(Pi[notI2, :] - Pi_tilde[notI2, :], axis=1) # row errors
+            else:
+                errs = np.sum(np.abs(Pi[notI2, :] - Pi_tilde[notI2, :]), axis=1)
             ell = notI2[np.argmax(errs)]
             I2.append(ell)
             notI2.remove(ell)
@@ -192,7 +195,7 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype):
         # As[bond+1] = A.T.reshape(k, d, chir, D)
     return As, I
 
-def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype):
+def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
     # sweep right to left
     for bond in range(L-2,-1,-1):
         # construct local two-site tensor
@@ -229,7 +232,10 @@ def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype):
             Z = find_ID_coeffs_via_iterated_leastsq(Pi, J=J1, notJ=notJ1)
             Pi_tilde = Pi[:, J1] @ Z            
             # compute errors and update index set
-            errs = np.linalg.norm(Pi[:, notJ1] - Pi_tilde[:, notJ1], axis=0) # column errors
+            if euclidean == True:
+                errs = np.linalg.norm(Pi[:, notJ1] - Pi_tilde[:, notJ1], axis=0) # column errors
+            else:
+                errs = np.sum(np.abs(Pi[:, notJ1] - Pi_tilde[:, notJ1]), axis=0)
             ell = notJ1[np.argmax(errs)]
             J1.append(ell)
             notJ1.remove(ell)
