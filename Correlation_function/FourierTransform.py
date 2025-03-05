@@ -192,7 +192,7 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
     # plt.xticks(sel_momenta_idx, sel_momenta)
     # plt.yticks(sel_freqs_idx, sel_freqs)
 
-    plt.imshow(np.abs(Swk[index:(index+interval), :]), aspect = 'auto', 
+    plt.imshow(np.abs(Swk[index:(index+interval+1), :]), aspect = 'auto', 
             interpolation = 'none',
             origin='lower', 
             cmap='inferno',
@@ -244,8 +244,8 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
     Winterp_min = interp_freqs[interp_index] - delta_winterp
     Winterp_max = interp_freqs[interp_index+interval] + delta_winterp
 
-    Swk = np.abs(Swk[index:(index+interval), :])
-    interp_Swk = np.abs(interp_Swk[index:(index+interval), :])
+    Swk = np.abs(Swk[index:(index+interval+1), :])
+    interp_Swk = np.abs(interp_Swk[index:(index+interval+1), :])
 
     omega = disp_relation(g_par = g_par, momenta = momenta, idx_model = idx_model)
 
