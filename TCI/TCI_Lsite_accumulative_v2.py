@@ -110,11 +110,11 @@ def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=
     difference = func_vals-func_interp #should be difference between 2 matrices
     err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
     err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
-    evals = tensor.cache_size() * D
+    evals = tensor.cache_size()
 
     print('err_max: ', err_max)
     print('err_2: ', err_2)
-    print("eval/D: ", tensor.cache_size())
+    print("evals: ", tensor.cache_size())
     print()
     print('repeated evaluations: ', tensor.numcacheused)
     print('unique evaluations', tensor.unique)
