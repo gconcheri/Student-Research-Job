@@ -52,30 +52,15 @@ in which correlation function is evaluated in space"""
 #%%
 def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, threshold = 10**(-14), d=2, euclidean = True):
     #tensor must be function s.t. f(*il,σj,σj+1,*jr).shape = (D,) with D number of points in space
+    
     # initial choice is all zeros
     idxs = np.zeros((L,), dtype=np.int32)
 
     #idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
 
-
-    # the following commented code doesn't work in this case because we would have to define the first As[0] 
-    # to have legs: chil, d, chir, D, whereas other As[1], As[2] and so on should have legs: chil d chir !!!!
-    # what we could do is take As list calculated from TCI_Lsite.py and plug it in here!
-
-    # As = [np.array([[[tensor(*idxs[:j], i, *idxs[j+1:])] for i in range(d)]])
-    #       for j in range(L)]
-    # if As[0][0,0,0] != 0:
-    #     As[1:] /= tensor(*idxs)
     dtype = np.complex128
 
-    As = []
-    As.append(np.ones((d, 1, D), dtype=dtype)[None])
-    for i in range(L-2):
-        As.append(np.zeros((1,d,1), dtype=dtype))
-    As.append(np.zeros((1,d), dtype=dtype)[..., None])
-    print(As[0].shape)
-    print(As[1].shape)
-    print(As[-1].shape)
+    As = [None] * L
 
     J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)]
     I = [idxs[:j].reshape(1, -1) for j in range(L)]

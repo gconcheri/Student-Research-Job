@@ -39,7 +39,7 @@ class function:  # certain function f(x) with x given as binary
         self.unique = 0
 
 
-    def __call__(self, *args, **kwds):
+    def __call__(self, *args, **kwds): #here args is a tuple (0,1,1,1,...)
         self.numvals+=1
         if args in self.cache:
             self.numcacheused+=1
@@ -104,7 +104,6 @@ def tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, it
     print('unique + repeated: ', tensor.numcacheused + tensor.unique)
     print('total evaluations: ', tensor.numvals)
     print()
-
 
     return As, J, evals, err_2, err_max, func_interp
 
