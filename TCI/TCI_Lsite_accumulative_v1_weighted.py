@@ -54,7 +54,7 @@ in which correlation function is evaluated in space"""
 
 #%%
 def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=6, 
-                                            euclidean = True, weight = True, model = 0):
+                                            euclidean = True, weight = True, full = True, model = 0):
     #tensor must be function s.t. f(*il,σj,σj+1,*jr).shape = (D,) with D number of points in space
     # initial choice is all zeros
     idxs = np.zeros((L,), dtype=np.int32)
@@ -73,8 +73,8 @@ def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=
     # sweep
     for i in range(iters):
         #print(f'Sweep: {i+1:d}.')
-        As, I = left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, model)
-        As, J = right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, model)
+        As, I = left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, full, model)
+        As, J = right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, full, model)
         runtime.append(tensor.runtime)
         func_interp = interpolation(As, D)
         difference = func_vals-func_interp #should be difference between 2 matrices
@@ -116,7 +116,7 @@ def interpolation(As, D):
     else: 
         return print("Error")
 
-def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, model):
+def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, full, model):
     # sweep left to right
     for bond in range(L-1):
         #print(bond)
@@ -161,15 +161,24 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, mod
                 errs = np.linalg.norm(Pi[notI2, :] - Pi_tilde[notI2, :], axis=1) # row errors
             else:
                 errs = np.sum(np.abs(Pi[notI2, :] - Pi_tilde[notI2, :]), axis=1)
-            if weight == True and bond < L//2+1:
-                a,b = notI2binary.shape
-                #we append set of zeros to each row such that the binary number is of length L
-                #in this way, we can apply int(...) which turns binary number into an integer 
-                #by multiplying rightmost digit for 2^0, second for 2^1, and so on up to the leftmost digit
-                #which is multiplied by 2^L-1 according to our conventional notation (look corr func TCI comment)
-                notI2binary = np.append(notI2binary, np.zeros((a, (L-b)), dtype=np.int32), axis = 1)
-                integers = np.array([int(''.join(map(str, row)), 2) for row in notI2binary])
-                ell = notI2[np.argmax(errs*weight_func(integers, model, L))]
+            if weight:
+                if full:
+                    a,b = notI2binary.shape
+                    #we append set of zeros to each row such that the binary number is of length L
+                    #in this way, we can apply int(...) which turns binary number into an integer 
+                    #by multiplying rightmost digit for 2^0, second for 2^1, and so on up to the leftmost digit
+                    #which is multiplied by 2^L-1 according to our conventional notation (look corr func TCI comment)
+                    notI2binary = np.append(notI2binary, np.zeros((a, (L-b)), dtype=np.int32), axis = 1)
+                    integers = np.array([int(''.join(map(str, row)), 2) for row in notI2binary])
+                    ell = notI2[np.argmax(errs*weight_func(integers, model, L))]
+                else:
+                    if bond < L//2 +1:
+                        a,b = notI2binary.shape
+                        notI2binary = np.append(notI2binary, np.zeros((a, (L-b)), dtype=np.int32), axis = 1)
+                        integers = np.array([int(''.join(map(str, row)), 2) for row in notI2binary])
+                        ell = notI2[np.argmax(errs*weight_func(integers, model, L))]
+                    else:
+                        ell = notI2[np.argmax(errs)]              
             else:
                 ell = notI2[np.argmax(errs)]
             I2.append(ell)
@@ -186,7 +195,7 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, mod
         As[bond+1] = Pi[I2, :].reshape(chi, d, chir, D)
     return As, I
 
-def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, model):
+def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, full, model):
     # sweep right to left
     for bond in range(L-2,-1,-1):
         # construct local two-site tensor
@@ -229,11 +238,20 @@ def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean, weight, mod
             else:
                 errs = np.sum(np.abs(Pi[:, notJ1] - Pi_tilde[:, notJ1]), axis=0)
 
-            if weight == True and bond < L//2+1: 
-                a,b = notJ1binary.shape
-                notJ1binary = np.append(np.zeros((a, (L-b)), dtype=np.int32), notJ1binary, axis = 1)
-                integers = np.array([int(''.join(map(str, row)), 2) for row in notJ1binary])
-                ell = notJ1[np.argmax(errs*weight_func(integers, model, L))]
+            if weight:
+                if full:
+                    a,b = notJ1binary.shape
+                    notJ1binary = np.append(np.zeros((a, (L-b)), dtype=np.int32), notJ1binary, axis = 1)
+                    integers = np.array([int(''.join(map(str, row)), 2) for row in notJ1binary])
+                    ell = notJ1[np.argmax(errs*weight_func(integers, model, L))]                    
+                else:
+                    if bond < L//2+1:
+                        a,b = notJ1binary.shape
+                        notJ1binary = np.append(np.zeros((a, (L-b)), dtype=np.int32), notJ1binary, axis = 1)
+                        integers = np.array([int(''.join(map(str, row)), 2) for row in notJ1binary])
+                        ell = notJ1[np.argmax(errs*weight_func(integers, model, L))]
+                    else:
+                        ell = notJ1[np.argmax(errs)]
             else:
                 ell = notJ1[np.argmax(errs)]
 
