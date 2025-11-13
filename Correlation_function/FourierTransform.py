@@ -221,7 +221,7 @@ def plot_Swk(Swk, momenta, freqs, g = 2., J = 1., interval = 20, fig = (8,4), in
 
 #here idx_model represents the index (either 0,1,2,3) referred to one the four models 
 def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_model, g_par,
-                g = 2., J = 1., interval = 20):
+                g = 2., J = 1., interval = 20, savefig = None):
     
     #W, K = Swk.shape
 
@@ -284,7 +284,11 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
         ax.legend()
 
     plt.tight_layout()
-    plt.show()
+
+    if savefig is not None:
+        plt.savefig(savefig)
+
+    # plt.show()
 
 
 def disp_relation(momenta, idx_model = None, g =2., J =1., k = 0.1, g_par = 0.5): # Calculates the theoretically expected dispersion relation for each model (esatta per model= 0,1 , per model 2,3 non proprio)

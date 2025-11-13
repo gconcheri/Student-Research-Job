@@ -53,10 +53,15 @@ def Chebyshev_interpolation(func,
 
     return As, evals, err_max, err_2, func_interp
 
+
+
 def Chebyshev_interpolation_version2(func, 
                             func_vals, #func as array evaluated on all discrete point in our grid, to compare it with func_interp
                             L, 
                             chi):
+    """
+    OBS: Chebyshev_interpolation_version2 is version 1 just taking whole interval of Corr func as if it
+    was half interval of another corr func and limiting the interpolation to that half interval (?)"""
     N = chi-1
     args = 0.5 * (np.arange(2)[:, None] + c_a_N(np.arange(N+1), N)[None, :]) # see Eqs. (4.1) and (4.2)
     As = []
@@ -122,7 +127,7 @@ def Chebyshev_interpolation_Dsite(func, func_vals, L, D, chi):
     evals = 1
     for ev in args.shape:
         evals*=ev
-    evals = evals *D
+    # evals = evals * D
 
     return As, evals, err_max, err_2, func_interp
 
