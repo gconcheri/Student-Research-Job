@@ -1,12 +1,11 @@
 import numpy as np
-import matplotlib.pyplot as plt
+from scipy.linalg.interpolative import interp_decomp
 
 """
-Exact same code as TCI_Lsite_accumulative_v1.py except for the accumulative_tensor_cross_interpolation function:
-here, instead of placing a limit on the number of iterations, we place a threshold on the error
-to reach in order to stop the sweeps."""
+Unified version of TCI_Lsite.py (reset mode) and TCI_Lsite_accumulative_v1.py (accumulative mode)
+"""
 
-# %%
+#%%
 def find_ID_coeffs_via_iterated_leastsq(A, J, notJ=None):
     """
     Given a set of columns A[:, J], finds a matrix Z such that
@@ -25,6 +24,32 @@ def find_ID_coeffs_via_iterated_leastsq(A, J, notJ=None):
     x = np.linalg.lstsq(A[:, J], A[:, notJ], rcond=None)[0] # x.shape = (len(J), N)
     Z[:, notJ] = x
     return Z
+
+# Use scipy's implementation of the interpolative decomposition
+# Instead of the matrix cross interpolation M = C @ P^-1 @ R
+# it factorizes as M = A @ P with A = M[:, idx]
+def interpolative_decomposition(M, eps_or_k=1e-5, k_min=2):
+    r = min(M.shape)
+    if r <= k_min:
+        k = r
+        idx, proj = interp_decomp(M, eps_or_k=k) #eps_or_k = precision of decomposition
+    elif isinstance(eps_or_k, int): #checks if eps is an integer
+        k = min(r, eps_or_k)
+        idx, proj = interp_decomp(M, eps_or_k=k)
+    else:
+        k, idx,  proj = interp_decomp(M, eps_or_k=eps_or_k)
+        if k <= k_min:
+            k = min(r, k_min) #is it not enough to put k = k_min? 
+                              #r>k_min otherwise first condition would have been true
+            idx, proj = interp_decomp(M, eps_or_k=k)
+    A = M[:, idx[:k]]
+    P = np.concatenate([np.eye(k), proj], axis=1)[:, np.argsort(idx)]
+    return A, P, k, idx[:k]
+
+# k is the 'compressed' rank = number of pivot columns
+# idx is the array with entries the indeces of the pivot columns
+# proj = matrix R s.t. M[:,idx[:k]]*R = M[:,idx[k:]] 
+# P = matrix s.t.  M[:,idx[:k]]*P = M (approximated)
 
 #%%
 class function:  # certain function f(x) with x given as binary
@@ -55,52 +80,56 @@ class function:  # certain function f(x) with x given as binary
 in which correlation function is evaluated in space"""
 
 #%%
-def accumulative_tensor_cross_interpolation(tensor, func_vals, D, L, threshold = 10**(-14), d=2, euclidean = True):
+def tensor_cross_interpolation(tensor, func_vals, D, L, d=2, iters=6, mode = 'reset', euclidean = True, eps_or_chi=1e-6):
     #tensor must be function s.t. f(*il,σj,σj+1,*jr).shape = (D,) with D number of points in space
-    
-    # initial choice is all zeros
-    idxs = np.zeros((L,), dtype=np.int32)
 
-    #idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
+    if mode == 'accumulative':
+        print("Using accumulative TCI")
+        # initial choice is all zeros
+        idxs = np.zeros((L,), dtype=np.int32)
+    elif mode == 'reset':
+        print("Using reset TCI")
+        # random initial choice for index sets
+        idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
 
     dtype = np.complex128
 
     As = [None] * L
 
-    J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)]
-    I = [idxs[:j].reshape(1, -1) for j in range(L)]
+    I = [idxs[:j].reshape(1, -1) for j in range(L)] #creates list of I_l arrays
+    J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)] # list of J_l
 
-    error = 1
-    ii=0
     # sweep
-    while error > threshold:
+    for _ in range(iters):
         #print(f'Sweep: {i+1:d}.')
-        ii+=1
-        As, I = left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean)
-        func_interp = interpolation(As, D, righttoleft = False)
-        difference = func_vals-func_interp #should be difference between 2 matrices
-        error = np.linalg.norm(difference)/np.linalg.norm(func_vals)
-        #print("iter = ", ii, " error = ", error)
-        if error > threshold:
-            ii+=1
-            As, J = right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean)
-            func_interp = interpolation(As, D)
-            difference = func_vals-func_interp #should be difference between 2 matrices
-            error = np.linalg.norm(difference)/np.linalg.norm(func_vals)
-            #print("iter = ", ii, " error = ", error)
-
-
-
+        if mode == 'accumulative':
+            As, I = accumulative_left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean)
+            As, J = accumulative_right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean)
+        elif mode == 'reset':
+            As, I = reset_left_to_right_sweep(tensor, As, I, J, L, d, D, eps_or_chi)
+            As, J = reset_right_to_left_sweep(tensor, As, I, J, L, d, D, eps_or_chi)
     #in theory, at the end of these sweeps the first tensor of As should be the only one with the additional leg of dim D
 
+    #func_interp = np.squeeze(As[0]) removes any singleton dimensions (dimensions of size 1).
+
+    func_interp = interpolation(As, D, righttoleft = True)
+
+    difference = func_vals-func_interp #should be difference between 2 matrices
     err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
+    err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
+    evals = tensor.cache_size() #this is equal to tensor.unique!
 
     print('err_max: ', err_max)
-    print('err_2: ', error)
+    print('err_2: ', err_2)
+    print()
+    print('repeated evaluations: ', tensor.numcacheused)
     print('unique evaluations', tensor.unique)
+    print('unique + repeated: ', tensor.numcacheused + tensor.unique)
+    print('total evaluations: ', tensor.numvals)
+    print()
 
 
-    return tensor.unique, error, err_max
+    return As, J, evals, err_2, err_max, func_interp
 
 def interpolation(As, D, righttoleft = True):
     if righttoleft == True:
@@ -133,7 +162,7 @@ def interpolation(As, D, righttoleft = True):
         else:
             return print("Error")
 
-def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
+def accumulative_left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
     # sweep left to right
     for bond in range(L-1):
         #print(bond)
@@ -190,20 +219,9 @@ def left_to_right_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
         # update tensors
         As[bond] = Z.T.reshape(chil, d, chi)
         As[bond+1] = Pi[I2, :].reshape(chi, d, chir, D)
-        # # decompose using interpolative decomposition:
-        # # Pi = P^T @ A^T, A^T = Pi[idx,:]
-        # A, P, k, idx = interpolative_decomposition(Pi.T, eps_or_k=eps_or_chi)
-        # #print("A.shape " ,A.shape)
-        # #print("P.shape ", P.shape)
-        # # update indices using idxs c I[bond] x {0, 1, ..., d-1}
-        # I[bond+1] = np.array([np.append(I[bond][i//d], [i%d]) for i in idx])
-        # # update tensors
-        # As[bond] = P.T.reshape(chil, d, k)
-        # As[bond+1] = A.T.reshape(k, d, chir, D)
-
     return As, I
 
-def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
+def accumulative_right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
     # sweep right to left
     for bond in range(L-2,-1,-1):
         # construct local two-site tensor
@@ -256,13 +274,61 @@ def right_to_left_sweep(tensor, As, I, J, L, d, D, dtype, euclidean):
         # update tensors
         As[bond] = Pi[:, J1].reshape(D, chil, d, chi)
         As[bond+1] = Z.reshape(chi, d, chir)
+    return As, J
 
-        # # decompose using interpolative decomposition:
-        # # Pi = A @ P, A = Pi[:,idx]
-        # A, P, k, idx = interpolative_decomposition(Pi, eps_or_k=eps_or_chi)
-        # # update indices using idxs c {0, 1, ..., d-1} x J[bond+1]
-        # J[bond] = np.array([np.append([i//chir], J[bond+1][i%chir]) for i in idx])
-        # # update tensors
-        # As[bond] = A.reshape(D, chil, d, k)
-        # As[bond+1] = P.reshape(k, d, chir)
+
+def reset_left_to_right_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
+    # sweep left to right
+    for bond in range(L-1):
+        # construct local two-site tensor
+        chil, _ = I[bond].shape #chil = number of rows in array I_l: number of combinations (σ1,..,σl)
+        chir, _ = J[bond+1].shape #which corresponds to number of "points" on which I am evaluating function
+        
+        Pi = np.zeros((D, chil, d, d, chir), dtype=np.complex128)
+        for il in range(chil):
+            for s1 in range(d):
+                for s2 in range(d):
+                    for jr in range(chir):
+                        val = tensor(*I[bond][il,:],s1,s2,*J[bond+1][jr,:])
+                        Pi[:,il,s1,s2,jr] = val
+                        #print(val.shape)
+        #print("Pi.shape = ", Pi.shape)
+        Pi = np.transpose(Pi, [1,2,3,4,0])
+        Pi = Pi.reshape(chil * d, d * chir * D)
+        # decompose using interpolative decomposition:
+        # Pi = P^T @ A^T, A^T = Pi[idx,:]
+        A, P, k, idx = interpolative_decomposition(Pi.T, eps_or_k=eps_or_chi)
+        #print("A.shape " ,A.shape)
+        #print("P.shape ", P.shape)
+        # update indices using idxs c I[bond] x {0, 1, ..., d-1}
+        I[bond+1] = np.array([np.append(I[bond][i//d], [i%d]) for i in idx])
+        # update tensors
+        As[bond] = P.T.reshape(chil, d, k)
+        As[bond+1] = A.T.reshape(k, d, chir, D)
+    return As, I
+
+def reset_right_to_left_sweep(tensor, As, I, J, L, d, D, eps_or_chi):
+    # sweep right to left
+    for bond in range(L-2,-1,-1):
+        # construct local two-site tensor
+        chil, _ = I[bond].shape
+        chir, _ = J[bond+1].shape
+
+        Pi = np.zeros((D, chil, d, d, chir), dtype=np.complex128)
+        for il in range(chil):
+            for s1 in range(d):
+                for s2 in range(d):
+                    for jr in range(chir):
+                        val = tensor(*I[bond][il,:],s1,s2,*J[bond+1][jr,:])
+                        #print(val.shape)
+                        Pi[:,il,s1,s2,jr] = val
+        Pi = Pi.reshape(D * chil * d, d * chir)
+        # decompose using interpolative decomposition:
+        # Pi = A @ P, A = Pi[:,idx]
+        A, P, k, idx = interpolative_decomposition(Pi, eps_or_k=eps_or_chi)
+        # update indices using idxs c {0, 1, ..., d-1} x J[bond+1]
+        J[bond] = np.array([np.append([i//chir], J[bond+1][i%chir]) for i in idx])
+        # update tensors
+        As[bond] = A.reshape(D, chil, d, k)
+        As[bond+1] = P.reshape(k, d, chir)
     return As, J

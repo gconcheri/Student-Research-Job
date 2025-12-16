@@ -2,6 +2,9 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
+"""
+Unstable version of accumulative L-site tensor cross interpolation: convergence changes depending on initial indices choice"""
+
 # %%
 def find_ID_coeffs_via_iterated_leastsq(A, J, notJ=None):
     """

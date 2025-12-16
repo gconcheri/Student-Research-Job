@@ -2,6 +2,9 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
+"""
+Robust version of accumulative L-site tensor cross interpolation (w.r.t. TCI_Lsite_accumulative_v2 which is not stable)"""
+
 # %%
 def find_ID_coeffs_via_iterated_leastsq(A, J, notJ=None):
     """

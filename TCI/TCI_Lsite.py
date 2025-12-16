@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.linalg.interpolative import interp_decomp
-import matplotlib.pyplot as plt
 
 # Use scipy's implementation of the interpolative decomposition
 # Instead of the matrix cross interpolation M = C @ P^-1 @ R
@@ -93,7 +92,7 @@ def tensor_cross_interpolation(tensor, func_vals, D, L, d=2, eps_or_chi=1e-6, it
     difference = func_vals-func_interp #should be difference between 2 matrices
     err_max = np.max(np.abs(difference))/np.max(np.abs(func_vals))
     err_2 = np.linalg.norm(difference)/np.linalg.norm(func_vals)
-    evals = tensor.cache_size() * D
+    evals = tensor.cache_size()
 
     print('err_max: ', err_max)
     print('err_2: ', err_2)
