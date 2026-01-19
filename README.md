@@ -16,14 +16,12 @@ fare plot vs noiseless function
 
 Hi everyone! Here you can find my code which I worked on to develop tensor networks algorithms potentially useful to **reduce computational costs** when having to measure correlation functions in **quantum computers** 🎸
 
-<div class="alert alert-info">
 <details>
 <summary>For more details on the physical motivation (the abstract) click here</summary>
-Measuring the correlation function of certain one-dimensional (1D) quantum systems is crucial for extracting the spectral function, which encodes key physical properties. Quantum computers offer significant potential for performing these measurements efficiently, as they can naturally simulate the time evolution of quantum systems. However, a major limiting factor is the **large number of distinct circuits** required to run on hardware to get a fine enough resolution of the correlation function to be able to extract the spectral function.
+<p>Measuring the correlation function of certain one-dimensional (1D) quantum systems is crucial for extracting the spectral function, which encodes key physical properties. Quantum computers offer significant potential for performing these measurements efficiently, as they can naturally simulate the time evolution of quantum systems. However, a major limiting factor is the <b>large number of distinct circuits</b> required to run on hardware to get a fine enough resolution of the correlation function to be able to extract the spectral function.</p>
 
-This project proposes an efficient method to reduce the number of distinct quantum circuit evaluations required to measure the correlation function at different times. This method leverages a generalization of interpolation algorithms, namely the Tensor Cross Interpolation (TCI) and Chebyshev algorithm. These algorithms enable the reconstruction of the correlation function–and consequently the spectral function–across different lattice sites and time steps with fewer function evaluations, and thus fewer measurements overall. To validate the approach, the methods are applied to the 1D transverse field Ising model in both the ferromagnetic and paramagnetic regimes, using classical simulations of noiseless and noisy quantum circuits. The results demonstrate their effectiveness, achieving a significant reduction in the number of measurements without compromising accuracy.
+<p>This project proposes an efficient method to reduce the number of distinct quantum circuit evaluations required to measure the correlation function at different times. This method leverages a generalization of interpolation algorithms, namely the <b>Tensor Cross Interpolation (TCI) and Chebyshev algorithm</b>. These algorithms enable the reconstruction of the correlation function–and consequently the spectral function–across different lattice sites and time steps with fewer function evaluations, and thus fewer measurements overall. To validate the approach, the methods are applied to the 1D transverse field Ising model in both the ferromagnetic and paramagnetic regimes, using classical simulations of noiseless and noisy quantum circuits. The results demonstrate their effectiveness, achieving a significant reduction in the number of measurements without compromising accuracy.</p>
 </details>
-</div>
 
 
 Simply put, these algorithms in general are useful to interpolate whichever 1D function using tensor networks. My work has been to generalize these algorithms to work also on 2D functions.  
@@ -53,11 +51,19 @@ Chebyshev_interpolation_correct.ipynb &rarr; Chebyshev.py: Chebyshev_interpolati
 ### L sites (generalization to 2D functions)
 TCI_Lsite.ipynb &rarr; TCI_Lsite...py, TCI_Lsite_accumulative...py &rarr; Correlation_function_Lsites.ipynb, Correlation_function_models.ipynb, Correlation_function_TCI_MPS.ipynb, Corrfunc_Lsiteaccumulative...ipynb, TCI_relevant_plots_new.ipynb, Corrfunc_noisy_Lsite.ipynb
 
-<div class="alert alert-info">
-**TCI_Lsite_final.py** is the final generalized 2D TCI code.  
-**Chebyshev.py** is the Chebyshev code, with both 1D and 2D Chebyshev algorithms. 
-</div>
 
+<div style="
+  border-left: 4px solid #2196f3;
+  background-color: #e3f2fd;
+  color: #0d47a1;
+  padding: 10px;
+  margin: 10px 0;
+">
+<p><strong>TCI_singlesite.py</strong>: 1D TCI standard (reset mode) code
+<p><strong>TCI_accumulative.py</strong>: 1D TCI accumulative code
+<p><strong>TCI_Lsite_final.py</strong>: final generalized 2D TCI code.</p>
+<p><strong>Chebyshev.py</strong>: Chebyshev code with both 1D and 2D Chebyshev algorithms.</p>
+</div>
 
 
 ## Other files
