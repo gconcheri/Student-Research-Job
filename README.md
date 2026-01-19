@@ -51,24 +51,18 @@ Chebyshev_interpolation_correct.ipynb &rarr; Chebyshev.py: Chebyshev_interpolati
 ### L sites (generalization to 2D functions)
 TCI_Lsite.ipynb &rarr; TCI_Lsite...py, TCI_Lsite_accumulative...py &rarr; Correlation_function_Lsites.ipynb, Correlation_function_models.ipynb, Correlation_function_TCI_MPS.ipynb, Corrfunc_Lsiteaccumulative...ipynb, TCI_relevant_plots_new.ipynb, Corrfunc_noisy_Lsite.ipynb
 
-
-<div style="
-  border-left: 4px solid #2196f3;
-  background-color: #e3f2fd;
-  color: #0d47a1;
-  padding: 10px;
-  margin: 10px 0;
-">
-<p><strong>TCI_singlesite.py</strong>: 1D TCI standard (reset mode) code
-<p><strong>TCI_accumulative.py</strong>: 1D TCI accumulative code
-<p><strong>TCI_Lsite_final.py</strong>: final generalized 2D TCI code.</p>
-<p><strong>Chebyshev.py</strong>: Chebyshev code with both 1D and 2D Chebyshev algorithms.</p>
-</div>
-
-
-## Other files
+### Other files
 **ED_Cs_Lsites.py**: needed to create exact diagonalization simulation of Ising Model
 **FourierTransform.py**: needed to do F.T. of correlation function to obtain spectral function (taken inspiration from MarkusFT - code done by Markus Drescher) 
+
+
+
+> **ℹ️ Summary:**  
+>**TCI_singlesite.py:** 1D TCI standard (reset mode) code.  
+>**TCI_accumulative.py:** 1D TCI accumulative code.  
+>**TCI_Lsite_final.py:** final generalized 2D TCI code.  
+>**Chebyshev.py:** Chebyshev code with both 1D and 2D versions.
+
 
 ---
 
