@@ -251,9 +251,9 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
 
     # Data and titles for each subplot
     data = [
-        (Swk, r'abs ED $Cs(\omega,k)$', [K_min, K_max, W_min, W_max]),
-        (interp_Swk, r'abs ID $Cs(\omega,k)$', [Kinterp_min, Kinterp_max, Winterp_min, Winterp_max]),
-        (np.abs(Swk-interp_Swk), 'abs theo - iter', [K_min, K_max, W_min, W_max])
+        (Swk, r'$|S_{ED}(\omega,k)|$', [K_min, K_max, W_min, W_max]),
+        (interp_Swk, r'$|S_{I}(\omega,k)|$', [Kinterp_min, Kinterp_max, Winterp_min, Winterp_max]),
+        (np.abs(Swk-interp_Swk), r'$|S_{ED}(\omega,k) - S_{I}(\omega,k)|$', [K_min, K_max, W_min, W_max])
     ]
 
     rows, cols = 1, 3  # Define grid dimensions
@@ -266,7 +266,7 @@ def fig_Swk(Swk, momenta, freqs, interp_Swk, interp_momenta, interp_freqs, idx_m
     for ax, (image, title, extent) in zip(axs.flat, data):
         ee += 1
         im = ax.imshow(image, aspect='auto', 
-                        interpolation='none', 
+                        interpolation='nearest', 
                         origin = 'lower', 
                         cmap = 'inferno',
                         extent = extent)
