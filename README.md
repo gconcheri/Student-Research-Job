@@ -1,17 +1,3 @@
-<!-- ## TODO:
-
-1. Show that chebyshev would work worse
-We want to extract the noiseless version out of the noisy result -> 
-out of Chebyshev: check for bigger interpolation power 
-fare plot vs noisy function
-
-fare plot vs noiseless function
-
-2. convolution  
-
-3. least square optimization with string tension
--->
-
 ## Student Research Job
 
 Hi everyone! Here you can find my code which I worked on to develop tensor networks algorithms potentially useful to **reduce computational costs** when having to measure correlation functions in **quantum computers** 🎸
