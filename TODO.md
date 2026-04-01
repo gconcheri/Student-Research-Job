@@ -13,7 +13,5 @@ SVD truncation:
 
 2. Lavora sul caso che hai già fatto: ovvero troncare singular values della two site slice. Idea nuova: fare nuovo sweep con interpolative decomposition, in pratica fare un altro giro di algoritmo, ma con errore più alto, in modo da far sì che solo certi elementi vengano tenuti, numero di singular values automaticamente diventino meno.
 
-controlla che tua simulazione MPS non sia PBC!
-
 
 3. Convolution
