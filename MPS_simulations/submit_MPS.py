@@ -2,10 +2,9 @@
 
 import cluster_jobs
 import copy
-import numpy as np  # only needed if you use np below
 
 config = {
-    'jobname': 'MyJob',
+    'jobname': 'MPS_simulation',  # name of the job
     'task': {
         'type': 'PythonFunctionCall',
         'module': 'simulation',
@@ -16,17 +15,11 @@ config = {
         'time': '2-00:00:00',  # d-hh:mm:ss
         'mem': '1G',
         'partition': 'cpu',
-        'qos': 'debug',
-        'nodes': 10,  # number of nodes
+        'qos': 'normal',
+        'nodes': 1,  # number of nodes
+        'cpus-per-task': 10,  # number of CPUs per task
     },
-    #  'requirements_sge': {  # for SGE
-    #      'l': 'h_cpu=0:30:00,h_rss=4G',
-    #      'q': 'queue',
-    #      'pe smp': '4',
-    #      # 'M': "no@example.com"
-    #  },
     'options': {
-        # you can add extra variables for the script_template in cluster_templates/* here
     }
 }
 
