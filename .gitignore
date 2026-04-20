@@ -1,2 +1,7 @@
 # macOS system files
 .DS_Store
+
+# cluster_templates
+# cluster_jobs.py
+# project_activate
+# submit_MPS.py
