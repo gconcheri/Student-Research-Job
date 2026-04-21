@@ -2,6 +2,7 @@
 
 import cluster_jobs
 import copy
+import numpy as np
 
 config = {
     'jobname': 'MPS_simulation',  # name of the job
@@ -23,13 +24,17 @@ config = {
     }
 }
 
+sigmay = np.array([[0, -1j], [1j, 0]])
+sigmax = np.array([[0, 1], [1, 0]])
+sigmaz = np.array([[1.0, 0.0], [0.0, -1.0]])
+
 
 kwargs = {
     'L': 55,
     'J': 1.0,
     'g': 0.15,
-    'X': 'sigmay',
-    'Y': 'sigmay',
+    'X': sigmay,
+    'Y': sigmay,
     'n': 12,
     'dt': 0.01,
     'k': 0.1,

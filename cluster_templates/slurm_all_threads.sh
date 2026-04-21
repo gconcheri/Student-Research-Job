@@ -16,7 +16,9 @@ set -e  # abort whole script if any command fails
 # === prepare the environement as necessary ===
 # module load python/3.7
 # conda activate tenpy
+export PYTHONPATH='/space-nobackup/go56vod/miniconda3/envs/MasterProject/bin/python' #adjust to my environment
 {environment_setup}
+
 
 # use SLURM_CPUS_PER_TASK, if not set default to SLURM_CPUS_ON_NODE
 USE_NUM_THREADS=${{SLURM_CPUS_PER_TASK:-${{SLURM_CPUS_ON_NODE}}}}
