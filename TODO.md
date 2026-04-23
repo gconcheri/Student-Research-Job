@@ -9,7 +9,7 @@ Sistema ED_Cs_LSites.py -> al momento non sto trovando ground state con h=10**-2
 SVD truncation:
 
 
-1. Fai isometric tensor networks lungo un sweep, e poi fai svd indietro per andare a vedere singular values e in caso fare truncation lungo il sweeo
+1. Fai isometric tensor networks lungo un sweep, e poi fai svd indietro per andare a vedere singular values e in caso fare truncation lungo il sweep
 
 2. Lavora sul caso che hai già fatto, ovvero troncare singular values della two site slice. Idea nuova: fare nuovo sweep con interpolative decomposition, in pratica fare un altro giro di algoritmo, ma con errore più alto, in modo da far sì che solo certi elementi vengano tenuti, numero di singular values automaticamente diventino meno.
 
