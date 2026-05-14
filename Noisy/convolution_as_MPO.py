@@ -2,6 +2,11 @@ import numpy as np
 
 def binary_addition_MPO(L, l=None, modular=False):
     r"""
+    this adds two binary numbers k + l = j
+
+    L = number of bits
+    l =  An optional specific integer to add. If left as None, the function builds a general 3-leg MPO (where j, k, and l are all open variables)
+
     Construct an MPO for an operation of the form
         O_jkl = \sum_m <j|m + l><m|k>.
     If l is given this will be an MPO for this specific l.
@@ -11,7 +16,7 @@ def binary_addition_MPO(L, l=None, modular=False):
     """
     
     # right edge
-    Wright = np.zeros((2, 1, 2, 2, 2), dtype=np.float64)
+    Wright = np.zeros((2, 1, 2, 2, 2), dtype=np.float64) #left right, 3 physical legs
     Wright[0, 0, :, :, 0] = np.eye(2)
     Wright[0, 0, 1, 0, 1] = Wright[1, 0, 0, 1, 1] = 1.
     
@@ -48,12 +53,17 @@ def binary_addition_MPO(L, l=None, modular=False):
     return Ws
 
 def construct_convolution_MPO(L, conv_MPS=None):
+    """
+    mathematically, convolution is given by (f * g)(l) = \sum_k f(k) g(l-k).
+    We can construct an MPO for this operation by modifying the binary addition MPO 
+    such that it computes j = (2^n - 1) - k + l instead of j = k + l, and post-selecting on the first bit of j being 0. This way, we have j = l - k mod 2^n, and by feeding in f(k) and g(l-k) we can compute the convolution.
+    """
     # binary addition MPO with open legs jkl
     Ws = binary_addition_MPO(L+1, modular=True)
     Wleft = Ws.pop(0)
-    # shift input k -> 2^n - k
-    X = np.fliplr(np.eye(2))
-    Ws = list(map(lambda W: np.einsum('abjkl, km -> abjml', W, X), Ws))
+    # shift input k -> (2^n -1) - k
+    X = np.fliplr(np.eye(2)) # bit flip matrix, i.e., X|0> = |1>, X|1> = |0>
+    Ws = list(map(lambda W: np.einsum('abjkl, km -> abjml', W, X), Ws)) # apply X to the k leg of each W, i.e., shift input k -> (2^n-1) - k
     # shift output l -> l + 2^n/2 and post-select on l's first bit being 0
     X1_CX10 = np.zeros((2,)*4)
     X1_CX10[:, 1, :, 0] = np.eye(2)

@@ -166,8 +166,11 @@ def matrix_to_tensor(mat, squeezed_shape, orig_shape):
     A_s = mat.reshape(squeezed_shape)
     return A_s.reshape(orig_shape)
 
-def errors(As, func_vals_theo):
-    func_interp = interpolate_func(As)
+def errors(As, func_vals_theo, interpolate=True):
+    if interpolate:
+        func_interp = interpolate_func(As)
+    else:
+        func_interp = As
     difference = func_vals_theo - func_interp
     err_max = np.max(np.abs(difference)) / np.max(np.abs(func_vals_theo))
     err_2 = np.linalg.norm(difference) / np.linalg.norm(func_vals_theo)

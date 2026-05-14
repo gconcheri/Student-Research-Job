@@ -53,6 +53,8 @@ class function:  # certain function f(x) with x given as binary
 
 # ### VERSION 2: difference with version 1 is that here we also store func_interp2, which is the interpolated function obtained when reaching error just below 10^-2
 # and here we don't calculate the numcacheused, numvals, unique 
+#also, here we do not have projective part in the interpolative decomposition which is needed for very weird functions such as gaussian with very small variance
+#here we do not have the option to start with a specific choice of indices
 
 # %%
 # implement the tensor cross interpolation

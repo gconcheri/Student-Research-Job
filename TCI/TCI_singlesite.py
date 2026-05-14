@@ -23,6 +23,14 @@ def interpolative_decomposition(M, eps_or_k=1e-5, k_min=2):
             idx, proj = interp_decomp(M, eps_or_k=k)
     A = M[:, idx[:k]]
     P = np.concatenate([np.eye(k), proj], axis=1)[:, np.argsort(idx)]
+
+# AGGIUNTA DEL FALLBACK PER PREVENIRE I NAN
+    if not np.isfinite(proj).all():
+        # Identifica gli indici delle colonne infette dai nan
+        col_idxs = np.logical_not(np.isfinite(P)).any(axis=0).nonzero()[0]
+        # Sostituiscili risolvendo il sistema M[:, J] @ x = M[:, j]
+        P[:, col_idxs] = np.linalg.lstsq(A, M[:, col_idxs], rcond=None)[0]
+
     return A, P, k, idx[:k]
 
 # k is the 'compressed' rank = number of pivot columns
@@ -49,7 +57,7 @@ class function:  # certain function f(x) with x given as binary
         else:
             self.unique+=1
             val = self.f(*args)
-            self.cache[*args] = val
+            self.cache[args] = val
             return val
     
     def cache_size(self): #size of cache = number of current evaluations
@@ -62,12 +70,24 @@ class function:  # certain function f(x) with x given as binary
 
 # %%
 # implement the tensor cross interpolation
-def tensor_cross_interpolation(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters=6):
-    # random initial choice for index sets
-    idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
+def tensor_cross_interpolation(tensor, func_vals, L, d=2, eps_or_chi=1e-6, iters=6, init_idxs=None):
+    
+    # Usa init_idxs se fornito, altrimenti scegli a caso
+    if init_idxs is not None:
+        idxs = np.array(init_idxs)
+    else:
+        idxs = np.random.choice(d, size=(L))
+        
     As = [np.array([[[tensor(*idxs[:j], i, *idxs[j+1:])] for i in range(d)]])
           for j in range(L)]
-    As[1:] /= tensor(*idxs)
+    
+    # Inserisci una piccola tolleranza per evitare divisioni accidentali per zero
+    As[1:] /= (tensor(*idxs) + 1e-12)
+    
+    # idxs = np.random.choice(d, size=(L)) #array of L random numbers from 0 to d-1 - index sigma
+    # As = [np.array([[[tensor(*idxs[:j], i, *idxs[j+1:])] for i in range(d)]])
+    #       for j in range(L)]
+    # As[1:] /= tensor(*idxs)
     #this sort of corresponds to inserting the P^-1 0-dimensional slices
     #i.e. if I don't put this, evaluating F(σ1,...,σL)= As*...*As = F(σ1,..,σL)^L, when it should give just F!
     eval = []
