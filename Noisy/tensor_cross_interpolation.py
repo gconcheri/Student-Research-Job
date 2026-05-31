@@ -74,13 +74,41 @@ def tensor_cross_interpolation(tensor, L, d=2, mode='reset', cache=True, init_id
     if cache:
         tensor = function_cache_wrapper(tensor)
     # random initial choice
-    if init_idxs is not None:
+    if init_idxs is not None and isinstance(init_idxs[0], list):
+        J = []
+        I = []
+
+        for j in range(1,L+1):
+            J_l = []
+            for id in init_idxs:
+                J_id = id[j:]
+                if not any(np.array_equal(J_id, x) for x in J_l):
+                    J_l.append(J_id)
+            J_l = np.array(J_l)
+            J.append(J_l)
+
+        for j in range(L):
+            I_l = []
+            for id in init_idxs:
+                I_id = id[:j]
+                if not any(np.array_equal(I_id, x) for x in I_l):
+                    I_l.append(I_id)
+            I_l = np.array(I_l)
+            I.append(I_l)
+        
+        dtype = tensor(*init_idxs[0]).dtype
+        
+    elif init_idxs is not None:
         idxs = np.array(init_idxs)
+        J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)]
+        I = [idxs[:j].reshape(1, -1) for j in range(L)]
+        dtype = tensor(*idxs).dtype
+
     else:
         idxs = np.random.choice(d, size=(L))
-    J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)]
-    I = [idxs[:j].reshape(1, -1) for j in range(L)]
-    dtype = tensor(*idxs).dtype
+        J = [idxs[j:].reshape(1, -1) for j in range(1, L+1)]
+        I = [idxs[:j].reshape(1, -1) for j in range(L)]
+        dtype = tensor(*idxs).dtype
     # run in either reset or accumulative mode
     if mode == 'reset':
         eps_or_chi = get_kwarg('eps_or_chi', kwargs, 1e-6)

@@ -166,11 +166,18 @@ def matrix_to_tensor(mat, squeezed_shape, orig_shape):
     A_s = mat.reshape(squeezed_shape)
     return A_s.reshape(orig_shape)
 
-def errors(As, func_vals_theo, interpolate=True):
+def errors(As, func_vals_theo, interpolate=True, truncate_array_1=None, truncate_array_2=None, truncate_array=None):
     if interpolate:
         func_interp = interpolate_func(As)
     else:
         func_interp = As
+    if truncate_array_2 is not None:
+        truncate_array_2 = -truncate_array_2 if truncate_array_2 > 0 else truncate_array_2
+        func_interp = func_interp[:truncate_array_2, :]
+        func_vals_theo = func_vals_theo[:truncate_array_2, :]
+    if truncate_array_1 is not None:
+        func_interp = func_interp[truncate_array_1:, :]
+        func_vals_theo = func_vals_theo[truncate_array_1:, :]
     difference = func_vals_theo - func_interp
     err_max = np.max(np.abs(difference)) / np.max(np.abs(func_vals_theo))
     err_2 = np.linalg.norm(difference) / np.linalg.norm(func_vals_theo)
@@ -201,3 +208,34 @@ def error_vs_chi(As, sing_values_dict, func_vals_theo):
             err_max_dict[n].append(err_max)
             err_2_dict[n].append(err_2)
     return err_max_dict, err_2_dict
+
+
+#--------------------------------
+#Function helpers for convolution
+
+# define some helper functions
+def contract_MPS(Ms):
+    vals = np.squeeze(Ms[0])
+    for M in Ms[1:]:
+        vals = np.einsum('ia, ajb -> ijb', vals, M)
+        vals = vals.reshape(-1, M.shape[-1])
+    vals = vals.reshape(-1)
+    return vals
+
+def apply_MPO(MPO, MPS):
+    Ms = []
+    for W, M in zip(MPO, MPS):
+        # Flatten any extra leading dimensions (e.g., (1, 1, 2, 8) becomes (1, 2, 8))
+        if M.ndim > 3:
+            M = M.reshape(-1, M.shape[-2], M.shape[-1])
+            
+        chilW, chirW, d, _ = W.shape
+        chilM, _, chirM = M.shape
+        
+        # Apply the contraction
+        new_M = np.einsum('abkj, cjd -> ackbd', W, M)
+        
+        # Reshape to standard 3-leg MPS format
+        Ms.append(new_M.reshape(chilW * chilM, d, chirW * chirM))
+        
+    return Ms
