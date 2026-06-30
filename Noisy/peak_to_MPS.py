@@ -124,7 +124,8 @@ def build_peak_mps(L, peak_values):
             total_mps = _add_mps(total_mps, mps_prod)
             
     # Remove redundancies from the direct summation
-    final_mps = _compress_mps(total_mps)
+    # final_mps = _compress_mps(total_mps)
+    final_mps = total_mps  # Skip compression for now to preserve the exact peak structure
     
     return final_mps
 

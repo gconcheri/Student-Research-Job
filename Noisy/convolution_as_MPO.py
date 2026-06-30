@@ -78,3 +78,54 @@ def construct_convolution_MPO(L, conv_MPS=None):
                                       .reshape(args[0].shape[0] * args[1].shape[0], -1, 2, 2),
                       zip(Ws, conv_MPS)))
     return Ws
+
+
+def diag_MPO_from_MPS(Ms):
+    Ws = []
+    for M in Ms:
+        chil, d, chir = M.shape
+        W = np.zeros((chil, chir, d, d), dtype=M.dtype)
+        W[:, :, np.arange(d), np.arange(d)] = M.transpose(0, 2, 1)
+        Ws.append(W)
+    return Ws
+
+def contract(Ws):
+    op = Ws[0]
+    for W in Ws[1:]:
+        op = np.tensordot(op, W, axes=(-3, 0))
+    op = op.squeeze()
+    idxs = [*range(0, op.ndim, 2), *range(1, op.ndim, 2)]
+    op = op.transpose(idxs)
+    dims = np.prod(op.shape[:op.ndim//2]), np.prod(op.shape[op.ndim//2:])
+    op = op.reshape(dims)
+    return op
+
+def add_MPO(As, Bs, weights=None):
+    if weights is None:
+        weights = [1, 1]
+    Cs = []
+    # left boundary
+    A = As[0]; B = Bs[0]
+    _, chirA, d1, d2 = A.shape
+    _, chirB,  _,  _ = B.shape
+    C = np.zeros((1, chirA + chirB, d1, d2), dtype=A.dtype)
+    C[:, :chirA, :, :] = weights[0] * A
+    C[:, chirA:, :, :] = weights[1] * B
+    Cs.append(C)
+    # bulk
+    for A, B in zip(As[1:-1], Bs[1:-1]):
+        chilA, chirA, d1, d2 = A.shape
+        chilB, chirB,  _,  _ = B.shape
+        C = np.zeros((chilA + chilB, chirA + chirB, d1, d2), dtype=A.dtype)
+        C[:chilA, :chirA, :, :] = A
+        C[chilA:, chirA:, :, :] = B
+        Cs.append(C)
+    # right boundary
+    A = As[-1]; B = Bs[-1]
+    chilA, _, d1, d2 = A.shape
+    chilB, _,  _,  _ = B.shape
+    C = np.zeros((chilA + chilB, 1, d1, d2), dtype=A.dtype)
+    C[:chilA, :, :, :] = A
+    C[chilA:, :, :, :] = B
+    Cs.append(C)
+    return Cs
