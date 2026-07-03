@@ -14,52 +14,63 @@ class Engine(object):
     """
 
     def __init__(self, As, Ws, dic_y):
-
         self.L = len(As)
         self.As = As
         self.Ws = Ws
-        self.dic_y = dic_y
+        
+        # --- PARSE dic_y FOR TERM II (Store FULL dataset safely) ---
+        self.N_total = len(dic_y)
+        self.idx_grid_full = np.array(list(dic_y.keys()), dtype=np.int32)
+        self.y_targets_full = np.array(list(dic_y.values()), dtype=complex)
+        
+        # Initialize Term II environment lists (Just empty shells for now!)
+        self.L_phi_unc = [None] * self.L
+        self.R_phi_unc = [None] * self.L
+        self.L_phi_conj = [None] * self.L
+        self.R_phi_conj = [None] * self.L
 
-        # initialize left and right environment for term I
+        # --- TERM I INITIALIZATION ---
         self.LPs = [None] * self.L
         self.RPs = [None] * self.L
 
-        LP = np.zeros([1,1,1,1], dtype="float")  # vL wL* vL*
-        RP = np.zeros([1,1,1,1], dtype="float")  # vR* wR* vR
+        LP = np.zeros([1,1,1,1], dtype="float")
+        RP = np.zeros([1,1,1,1], dtype="float")
         LP[0, 0, 0, 0] = 1
         RP[0, 0, 0, 0] = 1
 
         self.LPs[0] = LP
         self.RPs[-1] = RP
 
+        # Build Term I environments
+        for i in range(self.L - 1, 0, -1):
+            self.update_R1(i)
 
-        # --- PARSE dic_y FOR TERM II ---
-        self.N = len(dic_y)
-        # Convert keys (tuples) into an (N, L) array of integers
-        self.idx_grid = np.array(list(dic_y.keys()), dtype=np.int32)
-        # Convert values (arrays) into an (N, 11) array of complex targets
-        self.y_targets = np.array(list(dic_y.values()), dtype=complex)
-        
-        # Initialize Term II environments
-        # unc = Top Layer (Predictions), conj = Bottom Layer (Pulling back)
-        self.L_phi_unc = [None] * self.L
-        self.R_phi_unc = [None] * self.L
-        self.L_phi_conj = [None] * self.L
-        self.R_phi_conj = [None] * self.L
-        
-        # Leftmost L_phis are just 1s of shape (N, alpha) where alpha=1
+        # --- THIS DOES ALL THE MISSING WORK ---
+        # It defines self.N, builds the np.ones() boundaries, and runs update_phir!
+        self._prepare_batch(batch_size=None)
+
+    def _prepare_batch(self, batch_size):
+        """Samples a random mini-batch and builds its initial right environments."""
+        # 1. Select the random indices
+        if batch_size is None or batch_size >= self.N_total:
+            batch_indices = np.arange(self.N_total)
+            self.N = self.N_total
+        else:
+            # Randomly select 'batch_size' indices without replacement
+            batch_indices = np.random.choice(self.N_total, batch_size, replace=False)
+            self.N = batch_size
+
+        # 2. Set the active grid and targets for the current sweep
+        self.idx_grid = self.idx_grid_full[batch_indices]
+        self.y_targets = self.y_targets_full[batch_indices]
+
+        # 3. Reset the boundary environments to match the new batch size (N)
         self.L_phi_unc[0] = np.ones((self.N, 1), dtype=complex)
         self.L_phi_conj[0] = np.ones((self.N, 1), dtype=complex)
-
-        # Rightmost R_phis are just 1s of shape (N, beta) where beta=1
         self.R_phi_unc[-1] = np.ones((self.N, 1), dtype=complex)
         self.R_phi_conj[-1] = np.ones((self.N, 1), dtype=complex)
 
-        # initialize necessary RPs for Term I
-        for i in range(self.L- 1, 0, -1):
-            self.update_R1(i)
-
-        # Initialize necessary R_phis for Term II
+        # 4. Build the new right environments right-to-left before the sweep starts
         for i in range(self.L - 1, 0, -1):
             self.update_phir(i)
 
@@ -109,16 +120,20 @@ class Engine(object):
         return m_new_flat.reshape(shape)
 
 
-    def sweep(self, method='als', lambda_=1e-10, lr=0.01):
+    def sweep(self, method='als', lambda_=1e-10, lr=0.01, batch_size=None):
         """
         Sweeps across the tensor network.
         method: 'als' for direct linear solver, 'gd' for gradient descent.
+        batch_size: Integer to randomly subsample Term II data. If None, uses all data.
         """
-        # Sweep from Left to Right
+        # 1. Prepare the stochastic batch and its environments BEFORE sweeping
+        self._prepare_batch(batch_size)
+
+        # 2. Sweep from Left to Right
         for i in range(self.L - 1):
             self.update_bond_LR(i, method, lambda_, lr)
             
-        # Sweep from Right to Left
+        # 3. Sweep from Right to Left
         for i in range(self.L - 1, 0, -1):
             self.update_bond_RL(i, method, lambda_, lr)
 
