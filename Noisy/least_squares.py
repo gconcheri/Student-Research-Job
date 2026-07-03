@@ -1,7 +1,7 @@
 """Code implementing the least squares optimization algorithm."""
 
-
 import numpy as np
+import scipy.sparse.linalg as spla
 
 class Engine(object):
     """Least squares optimization algorithm, implemented as class holding the necessary data.
@@ -13,7 +13,7 @@ class Engine(object):
         of the type {site_index: function_value}.
     """
 
-    def __init__(self, As, Ws, dic_y, ):
+    def __init__(self, As, Ws, dic_y):
 
         self.L = len(As)
         self.As = As
@@ -32,9 +32,6 @@ class Engine(object):
         self.LPs[0] = LP
         self.RPs[-1] = RP
 
-        # initialize necessary RPs
-        for i in range(self.L- 1, 1, -1):
-            self.update_R1(i)
 
         # --- PARSE dic_y FOR TERM II ---
         self.N = len(dic_y)
@@ -43,36 +40,88 @@ class Engine(object):
         # Convert values (arrays) into an (N, 11) array of complex targets
         self.y_targets = np.array(list(dic_y.values()), dtype=complex)
         
-        # Initialize Term II environments (phis)
-        self.L_phis = [None] * self.L
-        self.R_phis = [None] * self.L
+        # Initialize Term II environments
+        # unc = Top Layer (Predictions), conj = Bottom Layer (Pulling back)
+        self.L_phi_unc = [None] * self.L
+        self.R_phi_unc = [None] * self.L
+        self.L_phi_conj = [None] * self.L
+        self.R_phi_conj = [None] * self.L
         
-        # Leftmost L_phi is just 1s of shape (N, alpha) where alpha=1
-        self.L_phis[0] = np.ones((self.N, 1), dtype=complex)
-        # Rightmost R_phi is just 1s of shape (N, beta) where beta=1
-        self.R_phis[-1] = np.ones((self.N, 1), dtype=complex)
-        
+        # Leftmost L_phis are just 1s of shape (N, alpha) where alpha=1
+        self.L_phi_unc[0] = np.ones((self.N, 1), dtype=complex)
+        self.L_phi_conj[0] = np.ones((self.N, 1), dtype=complex)
+
+        # Rightmost R_phis are just 1s of shape (N, beta) where beta=1
+        self.R_phi_unc[-1] = np.ones((self.N, 1), dtype=complex)
+        self.R_phi_conj[-1] = np.ones((self.N, 1), dtype=complex)
+
+        # initialize necessary RPs for Term I
+        for i in range(self.L- 1, 0, -1):
+            self.update_R1(i)
+
         # Initialize necessary R_phis for Term II
-        for i in range(self.L - 1, 1, -1):
+        for i in range(self.L - 1, 0, -1):
             self.update_phir(i)
 
 
-    def sweep(self):
-        # sweep from left to right
-        for i in range(self.L - 2):
-            self.update_bond(i)
-        # sweep from right to left
-        for i in range(self.L - 2, 0, -1):
-            self.update_bond(i)
+    # def sweep(self):
+    #     # sweep from left to right
+    #     for i in range(self.L - 2):
+    #         self.update_bond(i)
+    #     # sweep from right to left
+    #     for i in range(self.L - 2, 0, -1):
+    #         self.update_bond(i)
 
-    def update_bond(self, i, lambda_=1e-10):
-        j = i + 1
-        A1_m = self.A1_m(i)
+    # def update_bond(self, i, lambda_=1e-10, lr=0.01):
+    #     j = i + 1
+
+    #     A = self.As[i]
+
+    #     # 1. Gradient from Term I (String Tension)
+    #     grad_I = self.A1_m(i)
+
+    #     # 2. Gradient from Term II (Point fitting)
+    #     # In gradient descent, the gradient of (m^T A m - m^T b) is (A m - b).
+    #     # We approximate (A_II m) by just evaluating the current tensor in the environment
+    #     # and subtract b.
+    #     b_tensor = self.build_b(i)
+
+    #     grad_II = self.A2_m(i) - b_tensor
+
+    #     self.As[i] = A - lr * (lambda_ * grad_I + grad_II)
+    #     self.update_L1(i)
+    #     self.update_R1(j) #wrong for i=0, but also unnecessary when going left to right
+    #     self.update_phil(i)
+    #     self.update_phir(j)
+
+    def sweep(self, lambda_=1e-10, lr=0.01):
+        # Sweep from Left to Right
+        for i in range(self.L - 1):
+            self.update_bond_LR(i, lambda_, lr)
+            
+        # Sweep from Right to Left
+        for i in range(self.L - 1, 0, -1):
+            self.update_bond_RL(i, lambda_, lr)
+
+    def _apply_gradient(self, i, lambda_, lr):
+        """Helper to calculate gradients and update the tensor."""
         A = self.As[i]
-        Anew = A - lambda_ * A1_m
-        self.As[i] = Anew
+        grad_I = self.A1_m(i)
+        b_tensor = self.build_b(i)
+        grad_II = self.A2_m(i) - b_tensor
+        self.As[i] = A - lr * (lambda_ * grad_I + grad_II)
+
+    def update_bond_LR(self, i, lambda_=1e-10, lr=0.01):
+        """Update bond moving Left to Right. Only update Left environments."""
+        self._apply_gradient(i, lambda_, lr)
         self.update_L1(i)
-        self.update_R1(j)
+        self.update_phil(i)
+
+    def update_bond_RL(self, i, lambda_=1e-10, lr=0.01):
+        """Update bond moving Right to Left. Only update Right environments."""
+        self._apply_gradient(i, lambda_, lr)
+        self.update_R1(i)
+        self.update_phir(i)
 
 
     def update_R1(self, i):
@@ -107,12 +156,12 @@ class Engine(object):
         Ac = A.conj()
         W = self.Ws[i]
         Wc = W.conj()
-        if i==1:
+        if i==0:
             L1 = np.einsum('abcd, befg -> agefcd', L1, W)
             L1 = np.einsum('agefcd, chif -> agehid', L1, Wc)
             L1 = np.einsum('agehid, oagl -> olehid', L1, A)
-            L1 = np.einsum('olehid, idor -> lehr', L1, Ac)
-        elif i>1:
+            L1 = np.einsum('olehid, odir -> lehr', L1, Ac)
+        elif i>0:
             L1 = np.einsum('abcd, aef -> febcd', L1, A)
             L1 = np.einsum('febcd, bghe -> fghcd', L1, W)
             L1 = np.einsum('fghcd, cilh -> fgild', L1, Wc)
@@ -121,11 +170,10 @@ class Engine(object):
 
     def A1_m(self, i):
         """Calculate the effective operator for site `i`."""
-        j = i + 1
         A = self.As[i]
         W = self.Ws[i]
         Wc = W.conj()
-        R1 = self.RPs[j]
+        R1 = self.RPs[i]
         L1 = self.LPs[i]
         if i>0:
             L1 = np.einsum('abcd, aef -> febcd', L1, A)
@@ -136,20 +184,121 @@ class Engine(object):
             L1 = np.einsum('abcd, befg -> agefcd', L1, W)
             L1 = np.einsum('agefcd, chif -> agehid', L1, Wc)
             L1 = np.einsum('agehid, oagl -> olehid', L1, A)
-            A1_m = np.einsum('olehid, lehr -> oidr', L1, R1)
-            A1_m = np.squeeze(A1_m)
+            A1_m = np.einsum('olehid, lehr -> odir', L1, R1)
+            # A1_m = np.squeeze(A1_m)
         return A1_m
 
-    def update_phir(self, i):
-        """Calculate phi right of site `i` from phi right of site `i+1`."""
-        j = i + 1
-        ##MISSING
-    
     def update_phil(self, i):
-        """Calculate phi left of site `i` from phi left of site `i-1`."""
+        """Calculate phi left of site `i+1` from phi left of site `i`."""
+        j = i + 1
+        d_indices = self.idx_grid[:, i]
+        
+        L_unc = self.L_phi_unc[i]
+        L_conj = self.L_phi_conj[i]
+        A = self.As[i]
+        Ac = A.conj()
+        
+        if i == 0:
+            # A has shape (11, alpha, d, beta) -> let's call 11 the 'y' dimension
+            A_sliced = A[:, :, d_indices, :]   # Shape: (y, alpha, N, beta)
+            Ac_sliced = Ac[:, :, d_indices, :] 
+            
+            # L_phi goes from shape (N, alpha) to (N, y, beta)
+            # We keep the 'y' dimension open!
+            self.L_phi_unc[j] = np.einsum('na, yanb -> nyb', L_unc, A_sliced)
+            self.L_phi_conj[j] = np.einsum('na, yanb -> nyb', L_conj, Ac_sliced)
+            
+        else:
+            # A has shape (alpha, d, beta)
+            A_sliced = A[:, d_indices, :]   # Shape: (alpha, N, beta)
+            Ac_sliced = Ac[:, d_indices, :]
+            
+            # L_phi has shape (N, y, alpha). It contracts with A, keeping 'y' open.
+            self.L_phi_unc[j] = np.einsum('nya, anb -> nyb', L_unc, A_sliced)
+            self.L_phi_conj[j] = np.einsum('nya, anb -> nyb', L_conj, Ac_sliced)
+
+
+    def update_phir(self, i):
+        """Calculate phi right of site `i-1` from phi right of site `i`."""
         j = i - 1
-        ##MISSING
+        d_indices = self.idx_grid[:, i]
+        
+        A = self.As[i]
+        Ac = A.conj()
+        
+        # 1. Top Layer (Unconjugated)
+        R_unc = self.R_phi_unc[i]
+        self.R_phi_unc[j] = np.einsum('nb, anb -> na', R_unc, A[:, d_indices, :])
+        
+        # 2. Bottom Layer (Conjugated)
+        R_conj = self.R_phi_conj[i]
+        self.R_phi_conj[j] = np.einsum('nb, anb -> na', R_conj, Ac[:, d_indices, :])
+
+
+    def A2_m(self, i):
+            """Calculates A_II * m as shown in the double-layer diagram."""
+            # 1. Get the UNCONJUGATED environments and current tensor (Top Layer)
+            L_unc = self.L_phi_unc[i]   # Shape: (N, alpha)
+            R_unc = self.R_phi_unc[i]   # Shape: (N, beta)
+            m = self.As[i]              # Shape: (alpha, d, beta)
+            d_indices = self.idx_grid[:, i]
+            
+            # 2. Get the CONJUGATED environments (Bottom Layer)
+            L_conj = self.L_phi_conj[i]
+            R_conj = self.R_phi_conj[i]
+            
+            if i == 0:
+                dim_y, alpha, d, beta = m.shape
+                out_tensor = np.zeros((dim_y, alpha, d, beta), dtype=complex)
+                
+                for n in range(self.N):
+                    idx = d_indices[n]
+                    # Top Layer: Calculate prediction vector (size 11)
+                    pred = np.einsum('a, yab, b -> y', L_unc[n], m[:, :, idx, :], R_unc[n])
+                    # Bottom Layer: Multiply prediction with conjugated environments
+                    out_tensor[:, :, idx, :] += np.einsum('y, a, b -> yab', pred, L_conj[n], R_conj[n])
+                    
+            else:
+                alpha, d, beta = m.shape
+                out_tensor = np.zeros((alpha, d, beta), dtype=complex)
+                
+                for n in range(self.N):
+                    idx = d_indices[n]
+                    # Top Layer: Calculate prediction vector using the 'y' dim in L_unc
+                    pred = np.einsum('ya, ab, b -> y', L_unc[n], m[:, idx, :], R_unc[n])     
+
+                    # Bottom Layer: Contract prediction with the 'y' dim in L_conj
+                    out_tensor[:, idx, :] += np.einsum('y, ya, b -> ab', pred, L_conj[n], R_conj[n])
+                    
+            return out_tensor / self.N
 
     def build_b(self, i):
-        """Build the effective operator for the bond between sites `i` and `i+1`."""
-        ##MISSING
+        """Builds b = sum(y_j * Phi_j)"""
+        L_conj = self.L_phi_conj[i]
+        R_conj = self.R_phi_conj[i]
+        d_indices = self.idx_grid[:, i]
+        
+        if i == 0:
+            dim_y, alpha, d, beta = self.As[0].shape
+            b_tensor = np.zeros((dim_y, alpha, d, beta), dtype=complex)
+            
+            for n in range(self.N):
+                idx = d_indices[n]
+                # Outer product of (target, left, right)
+                b_tensor[:, :, idx, :] += np.einsum(
+                    'y, a, b -> yab', 
+                    self.y_targets[n], L_conj[n], R_conj[n]
+                )
+        else:
+            alpha, d, beta = self.As[i].shape
+            b_tensor = np.zeros((alpha, d, beta), dtype=complex)
+            
+            for n in range(self.N):
+                idx = d_indices[n]
+                # Contract the target with the 'y' dimension held in the left environment
+                b_tensor[:, idx, :] += np.einsum(
+                    'y, ya, b -> ab', 
+                    self.y_targets[n], L_conj[n], R_conj[n]
+                )
+                    
+        return b_tensor / self.N
