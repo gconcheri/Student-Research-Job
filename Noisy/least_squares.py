@@ -63,66 +63,112 @@ class Engine(object):
         for i in range(self.L - 1, 0, -1):
             self.update_phir(i)
 
+    def _find_new_tensor(self, i, method, lambda_, lr):
+        """Finds the optimized tensor using the specified method."""
+        if method == 'gd':
+            A = self.As[i]
+            grad_I = self.A1_m(i)
+            b_tensor = self.build_b(i)
+            # In GD, gradient of ||Am - b||^2 is (Am - b)
+            grad_II = self.A2_m(i) - b_tensor 
+            
+            # Take the gradient step
+            m_new = A - lr * (lambda_ * grad_I + grad_II)
+            return m_new
+            
+        elif method == 'als':
+            # Call the GMRES solver we built earlier
+            return self.solve_local_system(i, lambda_)
+            
+        else:
+            raise ValueError("Optimization method must be 'gd' or 'als'")
 
-    # def sweep(self):
-    #     # sweep from left to right
-    #     for i in range(self.L - 2):
-    #         self.update_bond(i)
-    #     # sweep from right to left
-    #     for i in range(self.L - 2, 0, -1):
-    #         self.update_bond(i)
 
-    # def update_bond(self, i, lambda_=1e-10, lr=0.01):
-    #     j = i + 1
+    def solve_local_system(self, i, lambda_):
+        """Solves the linear system A_eff * m = b for site i using GMRES."""
+        shape = self.As[i].shape
+        size = np.prod(shape)
+        
+        b_tensor = self.build_b(i)
+        b_flat = b_tensor.flatten()
+        
+        def matvec(v):
+            m_tensor = v.reshape(shape)
+            res_I = self.A1_m(i, m_input=m_tensor)
+            res_II = self.A2_m(i, m_input=m_tensor)
+            return (lambda_ * res_I + res_II).flatten()
+            
+        A_eff = spla.LinearOperator((size, size), matvec=matvec, dtype=complex)
+        m0 = self.As[i].flatten()
+        
+        m_new_flat, info = spla.gmres(A_eff, b_flat, x0=m0, rtol=1e-6)
+        
+        if info > 0:
+            print(f"Warning: GMRES at site {i} did not converge. Info: {info}")
+            
+        return m_new_flat.reshape(shape)
 
-    #     A = self.As[i]
 
-    #     # 1. Gradient from Term I (String Tension)
-    #     grad_I = self.A1_m(i)
-
-    #     # 2. Gradient from Term II (Point fitting)
-    #     # In gradient descent, the gradient of (m^T A m - m^T b) is (A m - b).
-    #     # We approximate (A_II m) by just evaluating the current tensor in the environment
-    #     # and subtract b.
-    #     b_tensor = self.build_b(i)
-
-    #     grad_II = self.A2_m(i) - b_tensor
-
-    #     self.As[i] = A - lr * (lambda_ * grad_I + grad_II)
-    #     self.update_L1(i)
-    #     self.update_R1(j) #wrong for i=0, but also unnecessary when going left to right
-    #     self.update_phil(i)
-    #     self.update_phir(j)
-
-    def sweep(self, lambda_=1e-10, lr=0.01):
+    def sweep(self, method='als', lambda_=1e-10, lr=0.01):
+        """
+        Sweeps across the tensor network.
+        method: 'als' for direct linear solver, 'gd' for gradient descent.
+        """
         # Sweep from Left to Right
         for i in range(self.L - 1):
-            self.update_bond_LR(i, lambda_, lr)
+            self.update_bond_LR(i, method, lambda_, lr)
             
         # Sweep from Right to Left
         for i in range(self.L - 1, 0, -1):
-            self.update_bond_RL(i, lambda_, lr)
+            self.update_bond_RL(i, method, lambda_, lr)
 
-    def _apply_gradient(self, i, lambda_, lr):
-        """Helper to calculate gradients and update the tensor."""
-        A = self.As[i]
-        grad_I = self.A1_m(i)
-        b_tensor = self.build_b(i)
-        grad_II = self.A2_m(i) - b_tensor
-        self.As[i] = A - lr * (lambda_ * grad_I + grad_II)
-
-    def update_bond_LR(self, i, lambda_=1e-10, lr=0.01):
-        """Update bond moving Left to Right. Only update Left environments."""
-        self._apply_gradient(i, lambda_, lr)
+    def update_bond_LR(self, i, method, lambda_, lr):
+        """Update bond moving Left to Right and gauge fix via SVD."""
+        # 1. Get the newly optimized tensor
+        m_new = self._find_new_tensor(i, method, lambda_, lr)
+        
+        # 2. SVD to restore left-canonical form
+        if i == 0:
+            dim_y, alpha, d, beta = m_new.shape
+            M_mat = m_new.reshape(dim_y * alpha * d, beta)
+            U, S, Vh = np.linalg.svd(M_mat, full_matrices=False)
+            self.As[i] = U.reshape(dim_y, alpha, d, U.shape[1])
+        else:
+            alpha, d, beta = m_new.shape
+            M_mat = m_new.reshape(alpha * d, beta)
+            U, S, Vh = np.linalg.svd(M_mat, full_matrices=False)
+            self.As[i] = U.reshape(alpha, d, U.shape[1])
+            
+        # 3. Push the weight into the next site to the right
+        rest = np.diag(S) @ Vh
+        self.As[i+1] = np.einsum('ab, bcd -> acd', rest, self.As[i+1])
+        
+        # 4. Update Environments
         self.update_L1(i)
         self.update_phil(i)
 
-    def update_bond_RL(self, i, lambda_=1e-10, lr=0.01):
-        """Update bond moving Right to Left. Only update Right environments."""
-        self._apply_gradient(i, lambda_, lr)
+    def update_bond_RL(self, i, method, lambda_, lr):
+        """Update bond moving Right to Left and gauge fix via SVD."""
+        # 1. Get the newly optimized tensor
+        m_new = self._find_new_tensor(i, method, lambda_, lr)
+        
+        # 2. SVD to restore right-canonical form
+        alpha, d, beta = m_new.shape
+        M_mat = m_new.reshape(alpha, d * beta)
+        U, S, Vh = np.linalg.svd(M_mat, full_matrices=False)
+        
+        self.As[i] = Vh.reshape(Vh.shape[0], d, beta)
+        rest = U @ np.diag(S)
+        
+        # 3. Push the weight into the previous site to the left
+        if i - 1 == 0:
+            self.As[i-1] = np.einsum('yadb, bc -> yadc', self.As[i-1], rest)
+        else:
+            self.As[i-1] = np.einsum('adb, bc -> adc', self.As[i-1], rest)
+            
+        # 4. Update Environments
         self.update_R1(i)
         self.update_phir(i)
-
 
     def update_R1(self, i):
         """Calculate RP right of site `i-1` from RP right of site `i`.
@@ -168,9 +214,9 @@ class Engine(object):
             L1 = np.einsum('fgild, dlm -> fgim', L1, Ac)
         self.LPs[j] = L1
 
-    def A1_m(self, i):
+    def A1_m(self, i, m_input=None):
         """Calculate the effective operator for site `i`."""
-        A = self.As[i]
+        A = self.As[i] if m_input is None else m_input
         W = self.Ws[i]
         Wc = W.conj()
         R1 = self.RPs[i]
@@ -235,12 +281,12 @@ class Engine(object):
         self.R_phi_conj[j] = np.einsum('nb, anb -> na', R_conj, Ac[:, d_indices, :])
 
 
-    def A2_m(self, i):
+    def A2_m(self, i, m_input=None):
             """Calculates A_II * m as shown in the double-layer diagram."""
             # 1. Get the UNCONJUGATED environments and current tensor (Top Layer)
             L_unc = self.L_phi_unc[i]   # Shape: (N, alpha)
             R_unc = self.R_phi_unc[i]   # Shape: (N, beta)
-            m = self.As[i]              # Shape: (alpha, d, beta)
+            m = self.As[i] if m_input is None else m_input              # Shape: (alpha, d, beta)
             d_indices = self.idx_grid[:, i]
             
             # 2. Get the CONJUGATED environments (Bottom Layer)
